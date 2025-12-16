@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% set settings_page = 'notifications' %}
+{% block title %}Notification Preferences{% endblock %}
+{% block content %}
+<div class="settings-section" id="notificationSettingsRoot">
+  <div class="settings-header"><h1>Notification Preferences</h1></div>
+  <div class="panel">
+    <div class="panel-header"><h2 class="panel-title">Channels</h2></div>
+    <div class="panel-body">
+      <table class="data-table narrow" id="notifPrefsTable">
+        <thead class="bg-neutral-100 text-neutral-600 uppercase text-xs"><tr><th>Type</th><th>In‑App</th><th>Email</th><th>SMS</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

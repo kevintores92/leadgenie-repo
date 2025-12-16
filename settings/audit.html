@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% set settings_page = 'audit' %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<div class="settings-section" id="auditSettingsRoot">
+  <div class="settings-header"><h1>Audit Log</h1></div>
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Recent Activity</h2>
+      <div class="panel-actions"><input type="search" id="auditSearch" placeholder="Filter..." class="kb-input"/></div>
+    </div>
+    <div class="panel-body">
+      <table class="data-table" id="auditTable">
+        <thead class="bg-neutral-100 text-neutral-600 uppercase text-xs"><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th><th>Meta</th></tr></thead>
+        <tbody></tbody>
+      </table>
+  <div id="auditEmpty" class="empty-hint hidden">No activity recorded.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

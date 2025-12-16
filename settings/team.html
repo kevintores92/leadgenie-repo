@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% set settings_page = 'team' %}
+{% block title %}Team Settings{% endblock %}
+{% block content %}
+<div class="settings-section" id="teamSettingsRoot">
+  <div class="settings-header">
+    <h1>Team & Roles</h1>
+    <button id="inviteUserBtn" class="bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:from-brand-600 hover:to-brand-700">Invite User</button>
+  </div>
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Users</h2>
+      <div class="panel-actions">
+        <input type="search" id="teamSearch" placeholder="Search users..." class="kb-input" />
+      </div>
+    </div>
+    <div class="panel-body">
+      <table class="data-table" id="teamUsersTable">
+        <thead class="bg-neutral-100 text-neutral-600 uppercase text-xs"><tr>
+          <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th class="w-28">Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+  <div id="teamEmpty" class="empty-hint hidden">No users yet.</div>
+    </div>
+  </div>
+  <div class="panel mt-6">
+    <div class="panel-header">
+      <h2 class="panel-title">Pending Invites</h2>
+    </div>
+    <div class="panel-body">
+      <table class="data-table" id="invitesTable">
+  <thead class="bg-neutral-100 text-neutral-600 uppercase text-xs"><tr><th>Email</th><th>Role</th><th>Sent</th><th class="w-24">Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+  <div id="invitesEmpty" class="empty-hint hidden">No pending invites.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Invite Modal -->
+<div id="inviteModal" class="modal-popup hidden">
+  <div class="modal-overlay" data-close></div>
+  <div class="modal-content max-w-md">
+    <button class="modal-close" data-close>✕</button>
+    <h3>Invite User</h3>
+    <form id="inviteForm" class="form-vertical">
+      <label>Email
+        <input type="email" name="email" required class="kb-input" placeholder="user@example.com" />
+      </label>
+      <label>Role
+        <select name="role" class="kb-input" required>
+          <option value="agent">Agent</option>
+          <option value="manager">Manager</option>
+          <option value="admin">Admin</option>
+        </select>
+      </label>
+      <label><input type="checkbox" name="send_email" checked/> Send email invite</label>
+      <div class="form-actions">
+        <button type="submit" class="bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:from-brand-600 hover:to-brand-700">Send Invite</button>
+        <button type="button" class="border border-neutral-300 text-neutral-700 text-sm px-4 py-2 rounded-lg hover:bg-neutral-100 border border-neutral-300 text-neutral-700 text-sm px-4 py-2 rounded-lg hover:bg-neutral-100" data-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TwiML WebRTC Demo</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:20px}
+    label{display:block;margin-top:10px}
+    input,button{padding:8px;font-size:14px}
+    pre{background:#f6f6f6;padding:10px}
+  </style>
+</head>
+<body>
+  <h1>TwiML WebRTC Demo</h1>
+  <p>Enter a client name and request TwiML that will Dial that client.</p>
+  <form id="clientForm">
+    <label>Client name
+      <input id="clientName" name="client" value="alice" />
+    </label>
+    <button type="submit">Get TwiML</button>
+  </form>
+
+  <h3>Response</h3>
+  <pre id="responseArea">(no response yet)</pre>
+
+  <script src="https://media.twiliocdn.com/sdk/js/client/v1.13/twilio.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

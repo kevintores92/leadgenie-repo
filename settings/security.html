@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% set settings_page = 'security' %}
+{% block title %}Security Settings{% endblock %}
+{% block content %}
+<div class="settings-section" id="securitySettingsRoot">
+  <div class="settings-header"><h1>Security</h1></div>
+  <div class="panel">
+    <div class="panel-header"><h2 class="panel-title">Multi‑Factor Authentication</h2></div>
+    <div class="panel-body">
+      <p>MFA is not yet enabled for your account. (Placeholder UI)</p>
+      <button class="bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:from-brand-600 hover:to-brand-700" id="enableMfaBtn" disabled>Enable MFA (soon)</button>
+    </div>
+  </div>
+  <div class="panel mt-6">
+    <div class="panel-header"><h2 class="panel-title">Active Sessions</h2></div>
+    <div class="panel-body">
+      <table class="data-table" id="sessionsTable">
+        <thead class="bg-neutral-100 text-neutral-600 uppercase text-xs"><tr><th>Device</th><th>IP</th><th>Last Active</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-hint">No sessions to show.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

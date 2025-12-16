@@ -1,0 +1,25 @@
+{
+  "name": "backend-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "prisma:generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "start": "node src/server.js",
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.5.0",
+    "express": "^4.18.2",
+    "morgan": "^1.10.0",
+    "twilio": "^4.3.0",
+    "bullmq": "^1.82.0",
+    "ioredis": "^5.3.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.5.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  }
+}

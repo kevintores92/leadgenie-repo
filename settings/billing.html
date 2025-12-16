@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% set settings_page = 'billing' %}
+{% block title %}Billing & Wallet{% endblock %}
+{% block content %}
+<div class="settings-section" id="billingSettingsRoot">
+  <div class="settings-header">
+    <h1>Billing & Wallet</h1>
+  </div>
+  <div class="settings-two-col">
+    <div class="col-main">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Current Plan</h2>
+          <button class="bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:from-brand-600 hover:to-brand-700" id="changePlanBtn">Change</button>
+        </div>
+        <div class="panel-body" id="currentPlanBox">
+          <div class="skeleton-line w-60"></div>
+          <div class="skeleton-line w-40"></div>
+          <div class="plan-meta" id="planMeta"></div>
+        </div>
+      </div>
+      <div>
+        <style>.pp-HQMC7LBQ8VRGA{text-align:center;border:none;border-radius:0.25rem;min-width:11.625rem;padding:0 2rem;height:2.625rem;font-weight:bold;background-color:#FFD140;color:#000000;font-family:"Helvetica Neue",Arial,sans-serif;font-size:1rem;line-height:1.25rem;cursor:pointer;}</style>
+        <form action="https://www.paypal.com/ncp/payment/HQMC7LBQ8VRGA" method="post" target="_blank" style="display:inline-grid;justify-items:center;align-content:start;gap:0.5rem;">
+          <input class="pp-HQMC7LBQ8VRGA" type="submit" value="Pay Now" />
+          <img src=https://www.paypalobjects.com/images/Debit_Credit.svg alt="cards" />
+          <section style="font-size: 0.75rem;"> Powered by <img src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-wordmark-color.svg" alt="paypal" style="height:0.875rem;vertical-align:middle;"/></section>
+        </form>
+      </div>
+  <div class="panel mt-6">
+        <div class="panel-header">
+          <h2 class="panel-title">Wallet Balance</h2>
+          <button class="bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:from-brand-600 hover:to-brand-700" id="manualTopUpBtn">Top Up</button>
+        </div>
+        <div class="panel-body">
+          <div class="wallet-balance"><span id="walletAmount" class="large-number">$0.00</span><span id="walletStatus" class="badge badge-ok">OK</span></div>
+          <div class="wallet-progress-wrap">
+            <div class="wallet-progress-bar"><div id="walletProgress" style="width:0%"></div></div>
+            <div class="wallet-progress-labels"><span>0%</span><span>100%</span></div>
+          </div>
+        </div>
+      </div>
+  <div class="panel mt-6">
+        <div class="panel-header"><h2 class="panel-title">Transactions</h2></div>
+        <div class="panel-body">
+          <table class="data-table" id="walletTxTable">
+            <thead class="bg-neutral-100 text-neutral-600 uppercase text-xs"><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th><th>Ref</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div id="walletTxEmpty" class="empty-hint hidden">No transactions yet.</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-side">
+      <div class="panel">
+        <div class="panel-header"><h2 class="panel-title">Auto‑Recharge</h2></div>
+        <div class="panel-body">
+          <form id="autoRechargeForm" class="form-vertical small">
+            <label>Enable
+              <select name="enabled" class="kb-input">
+                <option value="1" selected>Enabled</option>
+                <option value="0">Disabled</option>
+              </select>
+            </label>
+            <label>Threshold ($)
+              <input type="number" min="0" step="1" name="threshold" value="25" class="kb-input" />
+            </label>
+            <label>Top-Up Amount ($)
+              <input type="number" min="1" step="1" name="amount" value="50" class="kb-input" />
+            </label>
+            <button class="bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:from-brand-600 hover:to-brand-700" type="submit">Save</button>
+            <div id="autoRechargeSaved" class="form-hint hidden text-[var(--success)]">Saved ✓</div>
+          </form>
+        </div>
+      </div>
+  <div class="panel mt-6">
+        <div class="panel-header"><h2 class="panel-title">Payment Method</h2></div>
+          <div class="panel-body" id="paymentMethodBox">
+          <div class="skeleton-line w-70"></div>
+          <button class="bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:from-brand-600 hover:to-brand-700" id="addCardBtn">Add / Update Card</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

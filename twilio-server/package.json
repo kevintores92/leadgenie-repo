@@ -1,0 +1,13 @@
+{
+  "name": "twilio-server",
+  "version": "1.0.0",
+  "description": "Simple Express server returning TwiML to dial client 'alice'",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.22.1",
+    "twilio": "^5.10.7"
+  }
+}

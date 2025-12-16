@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+{% set settings_page = 'index' %}
+{% block title %}Settings{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Settings Vertical Tabs Layout */
+.settings-container {
+  display: flex;
+  height: calc(100vh - 60px);
+  background: #f8fafc;
+}
+
+.settings-sidebar {
+  width: 280px;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-medium);
+}
+
+.settings-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(to bottom, #fff, #f8fafc);
+}
+
+.settings-header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.settings-nav {
+  flex: 1;
+  padding: 16px 0;
+  overflow-y: auto;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  color: #6b7280;
+  text-decoration: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+}
+
+.settings-tab:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.settings-tab.active {
+  background: #eef2ff;
+  color: #2563eb;
+  border-left-color: #2563eb;
+  font-weight: 600;
+}
+
+.settings-tab-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.settings-tab.active .settings-tab-icon {
+  opacity: 1;
+}
+
+.settings-content {
+  flex: 1;
+  background: #fff;
+  overflow-y: auto;
+  position: relative;
+}
+
+.settings-panel {
+  display: none;
+  padding: 32px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.settings-panel.active {
+  display: block;
+}
+
+.settings-panel h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.settings-panel .description {
+  color: #6b7280;
+  font-size: 16px;
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .settings-container {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .settings-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .settings-nav {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0;
+  }
+  
+  .settings-tab {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    min-width: auto;
+  }
+  
+  .settings-tab.active {
+    border-left: none;
+    border-bottom-color: #2563eb;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+  <!-- Left Sidebar with Vertical Tabs -->
+  <div class="settings-sidebar">
+    <div class="settings-header">
+      <h1>Settings</h1>
+    </div>
+    <nav class="settings-nav">
+      <button class="settings-tab active" data-tab="overview">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
+        </svg>
+        Overview
+      </button>
+      
+      <button class="settings-tab" data-tab="team">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h2v-7.5c0-1.1-.9-2-2-2s-2 .9-2 2V18H4zm14 2v-7.5c0-1.1-.9-2-2-2s-2 .9-2 2V20h2zm-7-7.5c0-1.1-.9-2-2-2s-2 .9-2 2V20h4v-7.5z"/>
+        </svg>
+        Team & Roles
+      </button>
+      
+      <button class="settings-tab" data-tab="billing">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+        </svg>
+        Billing & Wallet
+      </button>
+      
+      <button class="settings-tab" data-tab="plan">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M9 11H7v6h2v-6zm4 0h-2v6h2v-6zm4 0h-2v6h2v-6zm2.5 9.5h-13V8h13v12.5zM19 7H5v13.5c0 .28.22.5.5.5h13c.28 0 .5-.22.5-.5V7zm1-5H4v2h16V2z"/>
+        </svg>
+        Plans
+      </button>
+      
+      <button class="settings-tab" data-tab="usage">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+        </svg>
+        Usage & Analytics
+      </button>
+      
+      <button class="settings-tab" data-tab="notifications">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+        </svg>
+        Notifications
+      </button>
+      
+      <button class="settings-tab" data-tab="audit">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+        </svg>
+        Audit Log
+      </button>
+      
+      <button class="settings-tab" data-tab="security">
+        <svg class="settings-tab-icon" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C15.4,11.5 16,12.1 16,12.7V16.2C16,16.8 15.4,17.4 14.8,17.4H9.2C8.6,17.4 8,16.8 8,16.2V12.8C8,12.2 8.6,11.6 9.2,11.6V10C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,10V11.5H13.5V10C13.5,8.7 12.8,8.2 12,8.2Z"/>
+        </svg>
+        Security
+      </button>
+    </nav>
+  </div>
+  
+  <!-- Main Content Area -->
+  <div class="settings-content">
+    <!-- Overview Panel -->
+    <div class="settings-panel active" id="overview-panel">
+      <h2>Settings Overview</h2>
+      <p class="description">Manage your account settings, team, billing, and preferences from the tabs on the left.</p>
+      
+      <div class="settings-grid grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
+        <div class="border border-neutral-300 text-neutral-700 text-sm px-4 py-2 rounded-lg hover:bg-neutral-100">
+          <h3 class="mb-3 text-lg font-semibold text-neutral-800">Quick Actions</h3>
+          <ul class="list-none p-0 m-0">
+            <li class="mb-3"><button class="settings-tab-link" data-target="team">→ Manage team members</button></li>
+            <li class="mb-3"><button class="settings-tab-link" data-target="billing">→ Update billing info</button></li>
+            <li class="mb-3"><button class="settings-tab-link" data-target="notifications">→ Configure notifications</button></li>
+          </ul>
+        </div>
+        
+        <div class="border border-neutral-300 text-neutral-700 text-sm px-4 py-2 rounded-lg hover:bg-neutral-100">
+          <h3 class="mb-3 text-lg font-semibold text-neutral-800">Account Status</h3>
+          <div class="text-neutral-500 text-sm">
+            <p>Your account is active and all services are operational.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Team Panel -->
+    <div class="settings-panel" id="team-panel">
+      <h2>Team & Roles</h2>
+      <p class="description">Manage users, invites, and permissions for your account.</p>
+      <div id="teamSettingsRoot"></div>
+    </div>
+    
+    <!-- Billing Panel -->
+    <div class="settings-panel" id="billing-panel">
+      <h2>Billing & Wallet</h2>
+      <p class="description">Manage your subscription plan, billing information, and account balance.</p>
+      <div id="billingSettingsRoot"></div>
+    </div>
+    
+    <!-- Plan Panel -->
+    <div class="settings-panel" id="plan-panel">
+      <h2>Plans</h2>
+      <p class="description">Compare and change your subscription plan.</p>
+      <div id="planSettingsRoot"></div>
+    </div>
+    
+    <!-- Usage Panel -->
+    <div class="settings-panel" id="usage-panel">
+      <h2>Usage & Analytics</h2>
+      <p class="description">View your SMS segments, call minutes, and costs.</p>
+      <div id="usageSettingsRoot"></div>
+    </div>
+    
+    <!-- Notifications Panel -->
+    <div class="settings-panel" id="notifications-panel">
+      <h2>Notifications</h2>
+      <p class="description">Configure your notification preferences and delivery channels.</p>
+      <div id="notificationsSettingsRoot"></div>
+    </div>
+    
+    <!-- Audit Panel -->
+    <div class="settings-panel" id="audit-panel">
+      <h2>Audit Log</h2>
+      <p class="description">View recent account actions and security events.</p>
+      <div id="auditSettingsRoot"></div>
+    </div>
+    
+    <!-- Security Panel -->
+    <div class="settings-panel" id="security-panel">
+      <h2>Security</h2>
+      <p class="description">Manage multi-factor authentication and view active sessions.</p>
+      <div id="securitySettingsRoot"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Settings Tab Management
+(function() {
+  const tabs = document.querySelectorAll('.settings-tab');
+  const panels = document.querySelectorAll('.settings-panel');
+  const tabLinks = document.querySelectorAll('.settings-tab-link');
+  
+  function showTab(tabName) {
+    // Remove active class from all tabs and panels
+    tabs.forEach(tab => tab.classList.remove('active'));
+    panels.forEach(panel => panel.classList.remove('active'));
+    
+    // Add active class to selected tab and panel
+    const selectedTab = document.querySelector(`[data-tab="${tabName}"]`);
+    const selectedPanel = document.getElementById(`${tabName}-panel`);
+    
+    if (selectedTab && selectedPanel) {
+      selectedTab.classList.add('active');
+      selectedPanel.classList.add('active');
+      
+      // Load content dynamically if needed
+      loadTabContent(tabName);
+    }
+  }
+  
+  function loadTabContent(tabName) {
+    const contentDiv = document.getElementById(`${tabName}SettingsRoot`);
+    if (!contentDiv) return;
+    
+    // Only load if content div is empty
+    if (contentDiv.children.length === 0) {
+      fetch(`/settings/${tabName}`)
+        .then(response => response.text())
+        .then(html => {
+          // Extract just the content div from the response
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const sourceContent = doc.querySelector(`#${tabName}SettingsRoot`);
+          
+          if (sourceContent) {
+            contentDiv.innerHTML = sourceContent.innerHTML;
+          } else {
+            contentDiv.innerHTML = `<p>Loading ${tabName} settings...</p>`;
+          }
+        })
+        .catch(error => {
+          console.error(`Failed to load ${tabName} settings:`, error);
+          contentDiv.innerHTML = `<p>Failed to load ${tabName} settings.</p>`;
+        });
+    }
+  }
+  
+  // Tab click handlers
+  tabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      const tabName = tab.getAttribute('data-tab');
+      showTab(tabName);
+      
+      // Update URL without page reload
+      history.pushState(null, '', `/settings#${tabName}`);
+    });
+  });
+  
+  // Quick action links
+  tabLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = link.getAttribute('data-target');
+      showTab(target);
+      history.pushState(null, '', `/settings#${target}`);
+    });
+  });
+  
+  // Handle direct URL hash navigation
+  function handleHashChange() {
+    const hash = window.location.hash.slice(1);
+    if (hash && document.querySelector(`[data-tab="${hash}"]`)) {
+      showTab(hash);
+    }
+  }
+  
+  // Initial load
+  window.addEventListener('hashchange', handleHashChange);
+  
+  // Check for hash on page load
+  if (window.location.hash) {
+    handleHashChange();
+  }
+})();
+</script>
+{% endblock %}

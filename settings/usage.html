@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% set settings_page = 'usage' %}
+{% block title %}Usage & Analytics{% endblock %}
+{% block content %}
+<div class="settings-section" id="usageSettingsRoot">
+  <div class="settings-header"><h1>Usage & Analytics</h1></div>
+  <div class="panel">
+    <div class="panel-header"><h2 class="panel-title">Summary (30d)</h2></div>
+    <div class="panel-body usage-summary" id="usageSummaryBox">
+      <div class="usage-kpi"><div class="kpi-label">SMS Segments</div><div class="kpi-value" id="kpiSms">0</div></div>
+      <div class="usage-kpi"><div class="kpi-label">Call Minutes</div><div class="kpi-value" id="kpiMinutes">0</div></div>
+      <div class="usage-kpi"><div class="kpi-label">Avg Cost / Day</div><div class="kpi-value" id="kpiAvgCost">$0.00</div></div>
+      <div class="usage-kpi"><div class="kpi-label">Projected Runway</div><div class="kpi-value" id="kpiRunway">—</div></div>
+    </div>
+  </div>
+  <div class="panel mt-6">
+    <div class="panel-header"><h2 class="panel-title">SMS Segments (Daily)</h2></div>
+    <div class="panel-body chart-area" id="chartSms"></div>
+  </div>
+  <div class="panel mt-6">
+    <div class="panel-header"><h2 class="panel-title">Call Minutes (Daily)</h2></div>
+    <div class="panel-body chart-area" id="chartMinutes"></div>
+  </div>
+</div>
+{% endblock %}
