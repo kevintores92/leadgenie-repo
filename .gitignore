@@ -95,3 +95,6 @@ public/messenger-seed.json
 # Ignore duplicate placeholder frontend folder
 apps/frontend/
 
+# Ignore static settings HTML files
+settings/
+
