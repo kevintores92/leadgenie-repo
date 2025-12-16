@@ -68,30 +68,38 @@ export type StatusKey = keyof typeof STATUS_CONFIG;
 /** Example function to update lead status (replace with your API call) */
 export const updateLeadStatus = async (id: string, status: StatusKey) => {
   try {
-    // If selecting drip, load the drip popups HTML and inject into DOM
-    if (status === 'drip') {
-      try {
-        const pop = await fetch('/api/drip/popups')
-        if (!pop.ok) throw new Error('Failed to load drip popups')
-        const html = await pop.text()
-        // Dispatch event so a React host component can render the popup safely
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('open-drip-popups', { detail: { html, leadId: id } }))
-        }
-        return { injected: true }
-      } catch (e) {
-        console.error(e)
-        throw e
-      }
-    }
-
+    // First, update the status via API
     const res = await fetch(`/api/leads/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
     if (!res.ok) throw new Error("Failed to update status");
-    return await res.json();
+    const result = await res.json();
+
+    // If selecting drip, try to load and inject the drip popups HTML
+    if (status === 'drip') {
+      try {
+        const pop = await fetch('/api/drip/popups')
+        if (pop.ok) {
+          const html = await pop.text()
+          // Dispatch event so a React host component can render the popup safely
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('open-drip-popups', { detail: { html, leadId: id } }))
+          }
+          return { ...result, injected: true }
+        } else {
+          console.warn(`Failed to load drip popups: ${pop.status} ${pop.statusText}`)
+          return { ...result, injected: false }
+        }
+      } catch (e) {
+        console.warn('Error loading drip popups:', e)
+        // Still return success - drip status was updated even if popups failed
+        return { ...result, injected: false }
+      }
+    }
+
+    return result;
   } catch (err) {
     console.error(err);
     throw err;
