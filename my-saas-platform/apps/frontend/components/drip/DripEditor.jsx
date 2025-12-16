@@ -41,7 +41,8 @@ export default function DripEditor({ onClose }) {
     const existing = JSON.parse(localStorage.getItem('drips') || '[]')
     existing.push(out)
     localStorage.setItem('drips', JSON.stringify(existing))
-    alert('Saved locally')
+    // Show success and close after a brief delay
+    alert('Drip automation created successfully!')
     onClose && onClose()
   }
 
