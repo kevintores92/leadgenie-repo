@@ -1,7 +1,8 @@
 app = "genie-frontend"
 
 [build]
-  image = "node:18-alpine"
+  builder = "dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
   NODE_ENV = "production"
