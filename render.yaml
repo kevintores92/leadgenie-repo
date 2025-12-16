@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: genie-frontend
+    root: my-saas-platform/apps/frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    plan: free
