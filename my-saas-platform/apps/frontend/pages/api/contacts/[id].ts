@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import prisma from '../../../lib/prisma'
 import { Prisma } from '@prisma/client'
+import { Decimal } from '@prisma/client/runtime/library'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query as { id: string }
@@ -21,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const data: any = { ...body }
     if (data.aiScore != null) {
       const n = Number(data.aiScore)
-      if (!Number.isNaN(n)) data.aiScore = new Prisma.Decimal(String(n))
+      if (!Number.isNaN(n)) data.aiScore = new Decimal(String(n))
     }
     // protect id fields
     delete data.id
