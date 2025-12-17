@@ -55,10 +55,10 @@ export default function ContactTable({ data, page, pageSize, total, setPage, set
               <th className="p-3"><input type="checkbox" onChange={(e)=>{ const checked = e.target.checked; const obj = {}; data.forEach(d=> obj[d.id]=checked); setSelected(obj); }} /></th>
               <th className="p-3">Name</th>
               <th className="p-3">Phone</th>
+              <th className="p-3">Property Address</th>
+              <th className="p-3">Mailing Address</th>
               <th className="p-3">Email</th>
               <th className="p-3">Created</th>
-              <th className="p-3">Last Activity</th>
-              <th className="p-3">Tags</th>
             </tr>
           </thead>
           <tbody>
@@ -71,18 +71,6 @@ export default function ContactTable({ data, page, pageSize, total, setPage, set
                     <div className="font-medium">{c.firstName} {c.lastName || ''}</div>
                   </div>
                 </td>
-                <td className="p-3">
-                  {(() => {
-                    const parts = [c.propertyAddress, c.propertyCity, c.propertyState, c.propertyZip].filter(Boolean)
-                    return parts.length ? parts.join(', ') : <span className="muted-text">—</span>
-                  })()}
-                </td>
-                <td className="p-3">
-                  {(() => {
-                    const parts = [c.mailingAddress, c.mailingCity, c.mailingState, c.mailingZip].filter(Boolean)
-                    return parts.length ? parts.join(', ') : <span className="muted-text">—</span>
-                  })()}
-                </td>
                 <td className="p-3">{
                   (() => {
                     const nums = [c.phone, c.phoneNumber, c.phone2, c.phone3, c.phone4, c.phone5].filter(Boolean)
@@ -90,6 +78,20 @@ export default function ContactTable({ data, page, pageSize, total, setPage, set
                     return <span>{nums[0]}<sup className="text-[10px] ml-1">{nums.length}</sup></span>
                   })()
                 }</td>
+                <td className="p-3 text-sm">
+                  {(() => {
+                    const parts = [c.propertyAddress, c.propertyCity, c.propertyState, c.propertyZip].filter(Boolean)
+                    return parts.length ? <div className="max-w-xs truncate" title={parts.join(', ')}>{parts.join(', ')}</div> : <span className="muted-text">—</span>
+                  })()}
+                </td>
+                <td className="p-3 text-sm">
+                  {(() => {
+                    const parts = [c.mailingAddress, c.mailingCity, c.mailingState, c.mailingZip].filter(Boolean)
+                    return parts.length ? <div className="max-w-xs truncate" title={parts.join(', ')}>{parts.join(', ')}</div> : <span className="muted-text">—</span>
+                  })()}
+                </td>
+                <td className="p-3 text-sm">{c.email || <span className="muted-text">—</span>}</td>
+                <td className="p-3 text-xs muted-text">{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}</td>
               </tr>
             ))}
           </tbody>
