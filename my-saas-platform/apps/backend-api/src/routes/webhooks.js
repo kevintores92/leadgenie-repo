@@ -13,11 +13,16 @@ router.post(`/twilio/inbound-${suffix}`, async (req, res) => {
   const { To, From, Body } = req.body || {};
   if (!To || !From) return res.status(400).send('missing fields');
 
-  // find sending number
-  const sending = await prisma.sendingNumber.findUnique({ where: { phoneNumber: To } });
-  if (!sending) return res.status(404).send('unknown to number');
-
-  const orgId = sending.organizationId;
+  // find sending number: prefer PhoneNumber pool, fallback to legacy SendingNumber
+  let sending = await prisma.phoneNumber.findUnique({ where: { phoneNumber: To } });
+  let orgId;
+  if (sending) {
+    orgId = sending.organizationId;
+  } else {
+    const legacy = await prisma.sendingNumber.findUnique({ where: { phoneNumber: To } });
+    if (!legacy) return res.status(404).send('unknown to number');
+    orgId = legacy.organizationId;
+  }
 
   // upsert contact by (organizationId, phoneNumber)
   // ensure there's a brand for this organization
@@ -46,6 +51,11 @@ router.post(`/twilio/inbound-${suffix}`, async (req, res) => {
     },
   });
 
+  // mark contact as replied
+  try {
+    await prisma.contact.update({ where: { id: contact.id }, data: { hasReplied: true, lastInboundAt: new Date() } });
+  } catch (e) { console.warn('failed to mark contact reply', e && e.message); }
+
   res.send('<Response></Response>');
 });
 
@@ -61,7 +71,66 @@ router.post(`/twilio/status-callback-${suffix}`, async (req, res) => {
   };
   const normalized = mapping[(MessageStatus || '').toLowerCase()] || 'SENT';
 
+  const ErrorCode = req.body && (req.body.ErrorCode || req.body.error_code || req.body.errorCode);
+
+  // Update message status
   await prisma.message.updateMany({ where: { twilioSid: MessageSid }, data: { status: normalized } });
+
+  // If failed with non-retryable error (carrier filtering / opted-out), mark phone number blocked where relevant
+  const nonRetryable = new Set([21610, 21612, 21614, 21408, 21611]);
+  const codeNum = ErrorCode ? Number(ErrorCode) : null;
+  if (normalized === 'FAILED' && codeNum && nonRetryable.has(codeNum)) {
+    try {
+      // Find messages with this sid to get the to/from number
+      const msg = await prisma.message.findUnique({ where: { twilioSid: MessageSid } });
+      if (msg) {
+        // Prefer PhoneNumber table
+        const pn = await prisma.phoneNumber.findUnique({ where: { phoneNumber: msg.fromNumber } });
+        if (pn) {
+          await prisma.phoneNumber.update({ where: { id: pn.id }, data: { status: 'BLOCKED' } });
+          await prisma.complianceAuditLog.create({ data: { organizationId: orgId, entityType: 'PHONE_NUMBER', entityId: pn.id, action: 'BLOCKED', reason: 'TWILIO_CODE_'+codeNum, metadata: { twilioError: codeNum } } });
+        }
+      }
+    } catch (e) { console.warn('failed to mark blocked number', e && e.message); }
+  }
+
+  // Deliverability scoring adjustments
+  try {
+    // Find message to get fromNumber
+    const msg = await prisma.message.findUnique({ where: { twilioSid: MessageSid } });
+    if (msg) {
+      // Map event to score delta
+      let delta = 0;
+      if (normalized === 'DELIVERED') delta = 0;
+      else if (normalized === 'FAILED') {
+        if (codeNum === 21610) delta = -40; // opt-out
+        else if (codeNum === 21611) delta = -25; // blocked
+        else delta = -10; // undelivered/failure
+      } else if (normalized === 'QUEUED' || normalized === 'SENT') delta = 0;
+
+      if (delta !== 0) {
+        // find PhoneNumber record
+        const pn = await prisma.phoneNumber.findUnique({ where: { phoneNumber: msg.fromNumber } });
+        if (pn) {
+          // upsert deliverability score for this phone
+          const existing = await prisma.deliverabilityScore.findFirst({ where: { entityType: 'PHONE_NUMBER', entityId: pn.id } });
+          if (existing) {
+            const next = Math.max(0, Math.min(100, existing.score + delta));
+            await prisma.deliverabilityScore.update({ where: { id: existing.id }, data: { score: next } });
+            // take action if thresholds crossed
+            if (next < 30) {
+              await prisma.phoneNumber.update({ where: { id: pn.id }, data: { status: 'BLOCKED' } });
+            } else if (next < 50) {
+              await prisma.phoneNumber.update({ where: { id: pn.id }, data: { status: 'PAUSED' } });
+            }
+          } else {
+            const initial = Math.max(0, Math.min(100, 100 + delta));
+            await prisma.deliverabilityScore.create({ data: { entityType: 'PHONE_NUMBER', entityId: pn.id, score: initial } });
+          }
+        }
+      }
+    }
+  } catch (e) { console.warn('deliverability scoring update failed', e && e.message); }
 
   res.json({ ok: true });
 });

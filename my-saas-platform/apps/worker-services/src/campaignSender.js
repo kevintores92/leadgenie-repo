@@ -38,6 +38,27 @@ new QueueScheduler(queueName, { connection });
 
 const twilioClient = Twilio(process.env.TWILIO_ACCOUNT_SID || '', process.env.TWILIO_AUTH_TOKEN || '');
 
+// Retry configuration
+const MAX_RETRIES = 2;
+
+const { selectPhoneNumber } = require('./lib/smsPool');
+const { runWarmupOnce } = require('./warmupJob');
+
+// Schedule warmup job once a day. Run immediately at startup then every 24h.
+(async () => {
+  try {
+    await runWarmupOnce();
+  } catch (e) { console.warn('initial warmup run failed', e && e.message); }
+  setInterval(() => {
+    runWarmupOnce().catch(e => console.warn('daily warmup failed', e && e.message));
+  }, 24 * 60 * 60 * 1000);
+})();
+
+// Also start BullMQ repeatable warmup scheduler (ensures a persistent repeatable job)
+try {
+  require('./warmupScheduler');
+} catch (e) { console.warn('warmupScheduler not started', e && e.message); }
+
 // Templates loaded from CSV at startup
 const path = require('path');
 const fs = require('fs');
@@ -182,26 +203,60 @@ async function enqueueCampaign(organizationId, campaignId, batchSize = 50, inter
       // base batch delay
       const baseDelay = batchIndex * intervalMinutes * 60 * 1000;
 
-      // suppression
+      // 24-hour cooldown check: do NOT enqueue if contact has received SMS in last 24 hours
       const last = await prisma.message.findFirst({
         where: { contactId: contact.id, status: 'OUTBOUND_API' },
         orderBy: { sentAt: 'desc' },
       });
-      let suppressionDelay = 0;
       if (last && last.sentAt) {
-        const msUntil = new Date(last.sentAt).getTime() + 24 * 60 * 60 * 1000 - Date.now();
-        if (msUntil > 0) suppressionDelay = msUntil;
+        const hoursSince = (Date.now() - new Date(last.sentAt).getTime()) / 36e5;
+        if (hoursSince < 24) {
+          // mark deferred for 24h and set nextEligibleAt
+          const nextSend = new Date(new Date(last.sentAt).getTime() + 24 * 60 * 60 * 1000);
+              await prisma.contact.update({ where: { id: contact.id }, data: { status: 'DEFERRED_24H', nextEligibleAt: nextSend } });
+              await prisma.activity.create({ data: { organizationId: organizationId, type: 'DEFERRED_24H', message: 'Deferred due to 24h cooldown', meta: { contactId: contact.id, campaignId, nextEligibleAt: nextSend } } });
+              await prisma.complianceAuditLog.create({ data: { organizationId, entityType: 'CONTACT', entityId: contact.id, action: 'DEFERRED_24H', reason: '24H_COOLDOWN', metadata: { campaignId, nextEligibleAt: nextSend } } });
+          continue;
+        }
       }
 
-      let delay = Math.max(baseDelay, suppressionDelay);
+      // Org-level cost cap check: if spentThisMonth >= monthlyCapUSD, pause campaign and DO NOT enqueue
+      const billing = await prisma.orgBillingControl.findUnique({ where: { organizationId } });
+      if (billing && billing.monthlyCapUSD !== null && billing.spentThisMonth >= billing.monthlyCapUSD) {
+        await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'PAUSED', pausedReason: 'BILLING_CAP' } });
+        await prisma.activity.create({ data: { organizationId: organizationId, type: 'CAMPAIGN_PAUSED', message: 'Paused due to org monthly cap', meta: { campaignId } } });
+        await prisma.complianceAuditLog.create({ data: { organizationId, entityType: 'CAMPAIGN', entityId: campaignId, action: 'PAUSED', reason: 'ORG_CAP_REACHED', metadata: { campaignId } } });
+        return;
+      }
 
+      // Quiet hours enforcement: if campaign defines quiet hours, re-schedule to next allowed window
+      let delay = baseDelay;
       if (!bypassBusinessHours) {
         const scheduled = Date.now() + delay;
-        const adjustedMs = adjustToBusinessHoursDelay(scheduled, timeZone);
+        let adjustedMs = adjustToBusinessHoursDelay(scheduled, timeZone);
+        // apply campaign quiet hours if set
+        const camp = campaign;
+        if (camp.quietHoursStart !== null && camp.quietHoursStart !== undefined && camp.quietHoursEnd !== null && camp.quietHoursEnd !== undefined) {
+          const currentHour = Number(new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hour12: false }).format(new Date(adjustedMs)));
+          const start = Number(camp.quietHoursStart);
+          const end = Number(camp.quietHoursEnd);
+          const insideQuiet = (start <= end) ? (currentHour >= start && currentHour < end) : (currentHour >= start || currentHour < end);
+          if (insideQuiet) {
+            // compute next allowed hour in timezone
+            let daysToAdd = 0;
+            let targetHour = end;
+            const nowParts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(new Date(adjustedMs));
+            const map = {};
+            for (const p of nowParts) map[p.type] = p.value;
+            const y = Number(map.year); const m = Number(map.month); const d = Number(map.day);
+            const targetLocalMs = Date.UTC(y, m - 1, d + daysToAdd, targetHour, 0, 0);
+            adjustedMs = targetLocalMs;
+          }
+        }
         delay = Math.max(0, adjustedMs - Date.now());
       }
 
-      await queue.add('send', { organizationId, campaignId, contactId: contact.id }, { delay, attempts: 5, backoff: { type: 'exponential', delay: 1000 } });
+      await queue.add('send', { organizationId, campaignId, contactId: contact.id }, { delay, attempts: MAX_RETRIES, backoff: { type: 'exponential', delay: 1000 } });
     }
   }
 
@@ -216,9 +271,14 @@ new Worker(queueName, async (job) => {
   const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
   if (!contact || !campaign) throw new Error('Missing contact or campaign');
 
-  // choose a sending number (round-robin by least-used)
-  const sending = await pickSendingNumberForSend(organizationId);
-  const from = sending ? sending.phoneNumber : undefined;
+  // Load campaign phone pool (deterministic assignment). Exclude BLOCKED numbers.
+  const poolLinks = await prisma.campaignPhoneNumber.findMany({ where: { campaignId }, include: { phoneNumber: true } });
+  const pool = poolLinks.map(p => p.phoneNumber).filter(p => p && p.status !== 'BLOCKED');
+  let chosenNumber = null;
+  if (pool.length > 0) {
+    chosenNumber = selectPhoneNumber(contact.id, pool);
+  }
+  const from = chosenNumber ? chosenNumber.phoneNumber : undefined;
 
   // choose template (prefer CSV pools when available)
   let templateString = chooseTemplateForContact(contact);
@@ -229,6 +289,13 @@ new Worker(queueName, async (job) => {
   const body = renderTemplate(templateString, contact);
 
   // create queued message
+  // Ensure contact is assigned to chosen number (sticky assignment)
+  if (chosenNumber && (!contact.assignedNumberId || contact.assignedNumberId !== chosenNumber.id)) {
+    try {
+      await prisma.contact.update({ where: { id: contact.id }, data: { assignedNumberId: chosenNumber.id } });
+    } catch (e) { console.warn('failed to assign contact number', e && e.message); }
+  }
+
   const queued = await prisma.message.create({
     data: {
       brandId: campaign.brandId,
@@ -257,6 +324,25 @@ new Worker(queueName, async (job) => {
     return;
   }
 
+  // Org billing control hard cap check
+  const billing = await prisma.orgBillingControl.findUnique({ where: { organizationId } });
+  if (billing && billing.monthlyCapUSD !== null && billing.spentThisMonth >= billing.monthlyCapUSD) {
+    await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'PAUSED', pausedReason: 'BILLING_CAP' } });
+    await prisma.activity.create({ data: { organizationId: organizationId, type: 'CAMPAIGN_PAUSED', message: 'Paused due to org monthly cap (worker)', meta: { campaignId } } });
+    return;
+  }
+
+  // Final 24h contact cooldown safeguard: do not send if contact received SMS in last 24h
+  if (contact.lastSmsSentAt) {
+    const hoursSince = (Date.now() - new Date(contact.lastSmsSentAt).getTime()) / 36e5;
+    if (hoursSince < 24) {
+      const nextSend = new Date(new Date(contact.lastSmsSentAt).getTime() + 24 * 60 * 60 * 1000);
+      await prisma.contact.update({ where: { id: contact.id }, data: { status: 'DEFERRED_24H', nextEligibleAt: nextSend } });
+      await prisma.activity.create({ data: { organizationId, type: 'DEFERRED_24H', message: 'Deferred at send-time due to 24h cooldown', meta: { contactId: contact.id, campaignId, nextEligibleAt: nextSend } } });
+      return;
+    }
+  }
+
   if (!from) {
     // No sending numbers available for this org — pause campaign and record reason
     await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'PAUSED', pausedReason: 'NO_NUMBERS' } });
@@ -266,19 +352,63 @@ new Worker(queueName, async (job) => {
     return;
   }
   const to = contact.phone;
-  // Per-number throttle: random 3000-6000ms, but don't exceed if number was idle
-  const perNumberDelay = Math.floor(Math.random() * 3000) + 3000;
-  if (sending && sending.lastUsedAt) {
-    const since = Date.now() - new Date(sending.lastUsedAt).getTime();
-    if (since < perNumberDelay) await sleep(perNumberDelay - since);
-  } else {
-    await sleep(perNumberDelay);
+  // Enforce warmup throttling per-number: convert warmupLevel (msgs/min) to min interval
+  let perNumberMinInterval = 1000; // conservative default 1 msg/sec
+  if (chosenNumber && chosenNumber.warmupLevel && chosenNumber.warmupLevel > 0) {
+    perNumberMinInterval = Math.ceil(60000 / chosenNumber.warmupLevel);
   }
+  const lastUsedMs = chosenNumber && chosenNumber.lastUsedAt ? new Date(chosenNumber.lastUsedAt).getTime() : 0;
+  const since = Date.now() - lastUsedMs;
+  if (since < perNumberMinInterval) await sleep(perNumberMinInterval - since);
   // Apply extended throttling if org has high message volume
   const totalSent = await prisma.usage.count({ where: { organizationId, type: 'AI_SMS' } });
   if (totalSent > 2000) await sleep(2000);
 
-  const msg = await twilioClient.messages.create({ body, from, to });
+  let msg;
+  try {
+    msg = await twilioClient.messages.create({ body, from, to });
+  } catch (err) {
+    // Determine retry-safe errors
+    const status = err && (err.status || err.statusCode || (err.response && err.response.status));
+    const code = err && err.code;
+    const isNetwork = !!(err && (err.code === 'ENOTFOUND' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT'));
+    const isServerError = status && status >= 500;
+
+    // Non-retryable Twilio errors (carrier filtering, opt-out, blocked) — common codes include 21610, 21612, 21614, etc.
+    const nonRetryableCodes = new Set([21610, 21612, 21614, 21408, 21611]);
+
+    if (isNetwork || isServerError) {
+      // allow worker to retry (Bull attempts configured). Throw to surface as retriable.
+      console.warn('Transient Twilio error, will retry', { err: err && err.message, status, code });
+      // record retry suppressed event only if attempts exhausted (Bull will retry automatically)
+      throw err;
+    } else if (code && nonRetryableCodes.has(code)) {
+      // Mark message failed and do NOT retry
+      console.warn('Non-retryable Twilio error (carrier/opt-out). Marking failed.', { code, msg: err && err.message });
+      await prisma.message.update({ where: { id: queued.id }, data: { status: 'FAILED' } });
+      await prisma.complianceAuditLog.create({ data: { organizationId, entityType: 'MESSAGE', entityId: queued.id, action: 'BLOCKED', reason: 'CARRIER_BLOCK_OR_OPT_OUT', metadata: { code, message: err && err.message } } });
+      // If Twilio indicates number blocked, mark number BLOCKED
+      if (code === 21610 || code === 21611) {
+        if (chosenNumber) {
+          await prisma.phoneNumber.update({ where: { id: chosenNumber.id }, data: { status: 'BLOCKED' } });
+          await prisma.complianceAuditLog.create({ data: { organizationId, entityType: 'PHONE_NUMBER', entityId: chosenNumber.id, action: 'BLOCKED', reason: 'TWILIO_CODE_'+code, metadata: { code } } });
+          // Fallback: attempt to reassign contact to another active number
+          const alt = pool.find(p => p.id !== chosenNumber.id && p.status === 'ACTIVE');
+          if (alt) {
+            await prisma.contact.update({ where: { id: contact.id }, data: { assignedNumberId: alt.id } });
+            await prisma.activity.create({ data: { organizationId: organizationId, type: 'NUMBER_REASSIGNED', message: 'Contact reassigned due to blocked number', meta: { from: chosenNumber.phoneNumber, to: alt.phoneNumber, contactId: contact.id, campaignId } } });
+            await prisma.complianceAuditLog.create({ data: { organizationId, entityType: 'CONTACT', entityId: contact.id, action: 'REASSIGNED', reason: 'NUMBER_BLOCKED_FALLBACK', metadata: { from: chosenNumber.id, to: alt.id, campaignId } } });
+          }
+        }
+      }
+      return;
+    } else {
+      // Unknown non-server error: do not retry to avoid billing/delivery issues
+      console.warn('Twilio error (non-retryable). Marking failed', { err: err && err.message, code, status });
+      await prisma.message.update({ where: { id: queued.id }, data: { status: 'FAILED' } });
+      return;
+    }
+  }
 
   // Deduct per-message cost and create usage record
   await prisma.$transaction(async (tx) => {
@@ -288,14 +418,23 @@ new Worker(queueName, async (job) => {
       await tx.organization.update({ where: { id: organizationId }, data: { aiRepliesEnabled: false, aiCallsEnabled: false } });
     }
   });
+  // Update org billing control spentThisMonth if record exists
+  try {
+    await prisma.orgBillingControl.updateMany({ where: { organizationId }, data: { spentThisMonth: { increment: MESSAGE_COST } } });
+  } catch (e) { console.warn('failed to update org billing spent', e && e.message); }
 
   // Update sending number usage metadata after send
-  if (sending) {
-    await prisma.sendingNumber.update({ where: { id: sending.id }, data: { lastUsedAt: new Date(), lastUsedCount: { increment: 1 } } });
+  if (chosenNumber) {
+    await prisma.phoneNumber.update({ where: { id: chosenNumber.id }, data: { lastUsedAt: new Date() } });
   }
 
   // update message to OUTBOUND_API
   await prisma.message.update({ where: { id: queued.id }, data: { status: 'OUTBOUND_API', sentAt: new Date(), twilioSid: msg.sid } });
+
+  // Update contact send lock timestamp
+  try {
+    await prisma.contact.update({ where: { id: contact.id }, data: { lastSmsSentAt: new Date() } });
+  } catch (e) { console.warn('failed to update contact lastSmsSentAt', e && e.message); }
 
 }, { connection });
 

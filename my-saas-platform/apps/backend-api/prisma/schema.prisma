@@ -65,24 +65,45 @@ model User {
   activeBrandId String?
   activeBrand   Brand?   @relation(fields: [activeBrandId], references: [id])
   username      String   @unique
+  email         String?
+  passwordHash  String?
   createdAt     DateTime @default(now())
 
   campaigns     Campaign[]
 }
 
 model PhoneNumber {
-  id         String   @id @default(cuid())
-  brandId    String
-  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  organizationId String?
-  number     String   @unique
-  areaCode   String?
-  assignedAt DateTime?
-  label      String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id              String   @id @default(cuid())
+  organizationId  String
+  brandId         String?
+  brand           Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  twilioSid       String   @unique
+  phoneNumber     String   @unique
+  status          PhoneNumberStatus @default(ACTIVE)
+  warmupLevel     Int      @default(1)
+  lastUsedAt      DateTime?
+  createdAt       DateTime @default(now())
 
+  campaigns       CampaignPhoneNumber[]
   contactsAssigned Contact[] @relation("AssignedNumber")
+}
+
+model CampaignPhoneNumber {
+  id            String   @id @default(cuid())
+  campaignId    String
+  phoneNumberId String
+
+  campaign      Campaign  @relation(fields: [campaignId], references: [id])
+  phoneNumber   PhoneNumber @relation(fields: [phoneNumberId], references: [id])
+
+  @@unique([campaignId, phoneNumberId])
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  WARMING
+  PAUSED
+  BLOCKED
 }
 
 model Campaign {
@@ -99,7 +120,10 @@ model Campaign {
   templateAlternate  String?
   batchSize          Int?
   intervalMinutes    Int?
+  quietHoursStart    Int?    // hour 0-23
+  quietHoursEnd      Int?
   createdAt  DateTime @default(now())
+  campaignPhoneNumbers CampaignPhoneNumber[]
 }
 
 model Message {
@@ -158,6 +182,9 @@ model Contact {
   nextEligibleAt   DateTime?
   aiScore          Decimal?
   tags             String[] @default([])
+  lastSmsSentAt    DateTime?
+  lastInboundAt    DateTime?
+  hasReplied       Boolean   @default(false)
   updatedAt        DateTime @updatedAt
   createdAt        DateTime @default(now())
 
@@ -169,6 +196,26 @@ model Contact {
   @@index([brandId])
   @@unique([brandId, phone])
 }
+
+model DeliverabilityScore {
+  id         String   @id @default(cuid())
+  entityType DeliverabilityEntity
+  entityId   String
+  score      Float    @default(100)
+  updatedAt  DateTime @updatedAt
+}
+
+enum DeliverabilityEntity {
+  PHONE_NUMBER
+  CAMPAIGN
+}
+
+model OrgBillingControl {
+  organizationId String  @id
+  monthlyCapUSD  Float
+  spentThisMonth Float   @default(0)
+}
+
 
 enum MessageDirection {
   INBOUND
@@ -258,5 +305,16 @@ model Activity {
   type           String
   message        String
   meta           Json?
+  createdAt      DateTime @default(now())
+}
+
+model ComplianceAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  action         String
+  reason         String
+  metadata       Json?
   createdAt      DateTime @default(now())
 }
