@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Search, Plus, Filter, Download, Upload, Trash2, Settings, 
   MoreHorizontal, ArrowUpDown, Mail, 
@@ -31,20 +31,9 @@ import {
 } from "@/components/ui/table";
 import MainLayout from "@/components/layout/MainLayout";
 
-// Mock Data
-const initialContacts = [
-  { id: 1, name: "Michael Scott", email: "michael.scott@dunder.com", phone: "+1 (555) 123-4567", role: "Regional Manager", status: "Hot Lead", tags: ["Investor", "Commercial"], lastContact: "2 hours ago", selected: false },
-  { id: 2, name: "Dwight Schrute", email: "dwight@farms.com", phone: "+1 (555) 987-6543", role: "Assistant to Manager", status: "Warm Lead", tags: ["Land", "Farming"], lastContact: "1 day ago", selected: false },
-  { id: 3, name: "Jim Halpert", email: "jim@dunder.com", phone: "+1 (555) 234-5678", role: "Sales Rep", status: "Nurture", tags: ["Residential", "Flipper"], lastContact: "3 days ago", selected: false },
-  { id: 4, name: "Pam Beesly", email: "pam@dunder.com", phone: "+1 (555) 345-6789", role: "Office Admin", status: "Cold", tags: ["First-time Buyer"], lastContact: "1 week ago", selected: false },
-  { id: 5, name: "Ryan Howard", email: "ryan@temp.com", phone: "+1 (555) 456-7890", role: "Temp", status: "Hot Lead", tags: ["Student", "Newbie"], lastContact: "Just now", selected: false },
-  { id: 6, name: "Stanley Hudson", email: "stanley@dunder.com", phone: "+1 (555) 567-8901", role: "Sales Rep", status: "Cold", tags: ["Retiree"], lastContact: "2 weeks ago", selected: false },
-  { id: 7, name: "Kevin Malone", email: "kevin@dunder.com", phone: "+1 (555) 678-9012", role: "Accountant", status: "Warm Lead", tags: ["Investor"], lastContact: "4 days ago", selected: false },
-  { id: 8, name: "Angela Martin", email: "angela@dunder.com", phone: "+1 (555) 789-0123", role: "Accountant", status: "Nurture", tags: ["Strict", "Cash Buyer"], lastContact: "5 days ago", selected: false },
-];
-
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState(initialContacts);
+  const [contacts, setContacts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedCount, setSelectedCount] = useState(0);
   const [visibleColumns, setVisibleColumns] = useState({
     name: true,
@@ -54,6 +43,40 @@ export default function ContactsPage() {
     tags: true,
     lastContact: true,
   });
+
+  // Fetch contacts from backend API
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/contacts');
+        if (!response.ok) throw new Error('Failed to fetch contacts');
+        const data = await response.json();
+        
+        // Map database contacts to UI format
+        const mappedContacts = data.map((contact: any) => ({
+          id: contact.id,
+          name: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
+          email: contact.email || '',
+          phone: contact.phone || '',
+          role: contact.propertyCity ? `Owner in ${contact.propertyCity}` : 'Contact',
+          status: 'Prospect',
+          tags: contact.propertyState ? [contact.propertyState] : [],
+          lastContact: 'Recently added',
+          selected: false,
+        }));
+        
+        setContacts(mappedContacts);
+      } catch (error) {
+        console.error('Error fetching contacts:', error);
+        setContacts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchContacts();
+  }, []);
 
   // Handle Select All
   const toggleSelectAll = (checked: boolean) => {

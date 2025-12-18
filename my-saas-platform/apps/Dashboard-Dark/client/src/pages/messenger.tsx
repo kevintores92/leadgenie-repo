@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Search, Plus, Phone, Send, 
   User, Clock, Archive, Mic, Image as ImageIcon
@@ -13,97 +13,58 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import MainLayout from "@/components/layout/MainLayout";
 
-// Mock Data for Threads
-const threads = [
-  {
-    id: 1,
-    name: "Michael Scott",
-    avatar: "MS",
-    lastMessage: "I'm interested in the property at 123 Main St. Is it still available?",
-    time: "10:42 AM",
-    unread: 2,
-    status: "hot", // hot, warm, cold
-    online: true,
-  },
-  {
-    id: 2,
-    name: "Sarah Connor",
-    avatar: "SC",
-    lastMessage: "Can we schedule a call for tomorrow regarding the offer?",
-    time: "Yesterday",
-    unread: 0,
-    status: "warm",
-    online: false,
-  },
-  {
-    id: 3,
-    name: "Jim Halpert",
-    avatar: "JH",
-    lastMessage: "Thanks for the info. I'll get back to you.",
-    time: "Yesterday",
-    unread: 0,
-    status: "nurture",
-    online: true,
-  },
-  {
-    id: 4,
-    name: "Dwight Schrute",
-    avatar: "DS",
-    lastMessage: "The beets capability of this land is distinct.",
-    time: "Mon",
-    unread: 0,
-    status: "cold",
-    online: false,
-  },
-  {
-    id: 5,
-    name: "Pam Beesly",
-    avatar: "PB",
-    lastMessage: "Did you get the documents I sent over?",
-    time: "Mon",
-    unread: 0,
-    status: "warm",
-    online: true,
-  },
-];
-
-// Mock Data for Messages
-const activeMessages = [
-  {
-    id: 1,
-    sender: "them",
-    text: "Hi, I saw your listing for the duplex on Elm Street.",
-    time: "10:30 AM",
-  },
-  {
-    id: 2,
-    sender: "me",
-    text: "Hello Michael! Yes, it's a great property. Are you looking to invest or live there?",
-    time: "10:32 AM",
-  },
-  {
-    id: 3,
-    sender: "them",
-    text: "Looking to invest. I have a few questions about the roof age and the HVAC.",
-    time: "10:35 AM",
-  },
-  {
-    id: 4,
-    sender: "me",
-    text: "The roof was replaced in 2021 and the HVAC is about 5 years old. It's in solid shape.",
-    time: "10:38 AM",
-  },
-  {
-    id: 5,
-    sender: "them",
-    text: "That sounds promising. I'm interested in the property at 123 Main St. Is it still available?",
-    time: "10:42 AM",
-  },
-];
-
 export default function MessengerPage() {
-  const [selectedThread, setSelectedThread] = useState(threads[0]);
+  const [threads, setThreads] = useState([]);
+  const [selectedThread, setSelectedThread] = useState(null);
   const [messageInput, setMessageInput] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch contacts and convert to threads
+  useEffect(() => {
+    const fetchThreads = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/contacts');
+        if (!response.ok) throw new Error('Failed to fetch contacts');
+        const data = await response.json();
+        
+        // Map contacts to threads
+        const mappedThreads = data.slice(0, 10).map((contact: any) => ({
+          id: contact.id,
+          name: `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Unknown Contact',
+          avatar: `${contact.firstName?.charAt(0) || 'C'}${contact.lastName?.charAt(0) || 'C'}`,
+          lastMessage: `Inquiry about property in ${contact.propertyCity || 'your area'}`,
+          time: 'Recently',
+          unread: 0,
+          status: 'warm',
+          online: Math.random() > 0.5,
+          email: contact.email || '',
+          phone: contact.phone || '',
+          location: contact.propertyCity || 'Unknown',
+        }));
+        
+        setThreads(mappedThreads);
+        if (mappedThreads.length > 0) {
+          setSelectedThread(mappedThreads[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching threads:', error);
+        setThreads([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchThreads();
+  }, []);
+
+  if (isLoading) {
+    return <MainLayout title="Inbox"><div className="flex items-center justify-center h-full text-muted-foreground">Loading contacts...</div></MainLayout>;
+  }
+
+  if (!selectedThread && threads.length === 0) {
+    return <MainLayout title="Inbox"><div className="flex items-center justify-center h-full text-muted-foreground">No contacts available</div></MainLayout>;
+  }
 
   return (
     <MainLayout title="Inbox">
@@ -113,7 +74,7 @@ export default function MessengerPage() {
           {/* Header */}
           <div className="p-4 border-b border-border flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h1 className="text-xl font-heading font-bold">Threads</h1>
+              <h1 className="text-xl font-heading font-bold">Contacts</h1>
               <Button size="icon" variant="ghost" className="h-8 w-8">
                 <Plus className="h-5 w-5 text-primary" />
               </Button>
@@ -121,7 +82,7 @@ export default function MessengerPage() {
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Search messages..." 
+                placeholder="Search contacts..." 
                 className="pl-9 bg-secondary/30 border-border/50 focus:border-primary focus:ring-primary/20 h-9" 
               />
             </div>
@@ -136,11 +97,11 @@ export default function MessengerPage() {
           {/* Threads List */}
           <ScrollArea className="flex-1">
             <div className="flex flex-col">
-              {threads.map((thread) => (
+              {threads.map((thread: any) => (
                 <div 
                   key={thread.id}
                   onClick={() => setSelectedThread(thread)}
-                  className={`p-4 border-b border-border/30 cursor-pointer hover:bg-secondary/30 transition-colors flex gap-3 ${selectedThread.id === thread.id ? 'bg-secondary/40 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
+                  className={`p-4 border-b border-border/30 cursor-pointer hover:bg-secondary/30 transition-colors flex gap-3 ${selectedThread?.id === thread.id ? 'bg-secondary/40 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
                 >
                   <div className="relative">
                     <Avatar>
@@ -177,6 +138,7 @@ export default function MessengerPage() {
         {/* CENTER - CHAT AREA */}
         <div className="flex-1 flex flex-col bg-background/50 relative">
           {/* Chat Header */}
+          {selectedThread && (
           <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-background/80 backdrop-blur-md z-10">
             <div className="flex items-center gap-3">
               <Avatar className="h-9 w-9">
@@ -185,10 +147,10 @@ export default function MessengerPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-heading font-semibold">{selectedThread.name}</h2>
-                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-red-500/10 text-red-500 border-red-500/20">Hot Lead</Badge>
+                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-orange-500/10 text-orange-500 border-orange-500/20">Prospect</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Online now
+                  <span className={`w-1.5 h-1.5 rounded-full ${selectedThread.online ? 'bg-green-500' : 'bg-gray-500'}`}></span> {selectedThread.online ? 'Online' : 'Offline'}
                 </p>
               </div>
             </div>
@@ -204,39 +166,12 @@ export default function MessengerPage() {
               </Button>
             </div>
           </div>
+          )}
 
           {/* Messages Area */}
           <ScrollArea className="flex-1 p-6">
-            <div className="space-y-6 max-w-3xl mx-auto">
-              <div className="flex justify-center">
-                <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1 rounded-full">Today, 10:23 AM</span>
-              </div>
-              
-              {activeMessages.map((msg) => (
-                <div 
-                  key={msg.id} 
-                  className={`flex w-full ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex max-w-[75%] gap-2 ${msg.sender === 'me' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    <Avatar className="h-8 w-8 mt-1">
-                      <AvatarFallback className={msg.sender === 'me' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}>
-                        {msg.sender === 'me' ? 'You' : selectedThread.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className={`group relative p-3.5 rounded-2xl shadow-sm text-sm ${
-                      msg.sender === 'me' 
-                        ? 'bg-primary text-primary-foreground rounded-tr-sm' 
-                        : 'bg-card border border-border/50 text-card-foreground rounded-tl-sm'
-                    }`}>
-                      {msg.text}
-                      <div className={`absolute bottom-0 ${msg.sender === 'me' ? '-left-12' : '-right-12'} opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-muted-foreground py-2`}>
-                        {msg.time}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-6 max-w-3xl mx-auto text-center text-muted-foreground">
+              <p className="py-12">No messages yet. Start a conversation by sending an SMS!</p>
             </div>
           </ScrollArea>
 
