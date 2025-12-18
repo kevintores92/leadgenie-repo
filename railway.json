@@ -1,0 +1,65 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "services": {
+    "backend-api": {
+      "source": {
+        "repo": "https://github.com/YOUR_GITHUB_USERNAME/leadgenie-repo.git"
+      },
+      "rootDirectory": "my-saas-platform/apps/backend-api",
+      "buildCommand": "npm install && npx prisma migrate deploy",
+      "startCommand": "node src/server.js",
+      "variables": {
+        "PORT": "5000",
+        "NODE_ENV": "production",
+        "DEV_AUTH_EMAIL": "admin@example.com",
+        "DEV_AUTH_PASSWORD": "supersecret",
+        "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
+        "TWILIO_AUTH_TOKEN": "${{ secrets.TWILIO_AUTH_TOKEN }}",
+        "TWILIO_TWIML_APP_SID": "${{ secrets.TWILIO_TWIML_APP_SID }}",
+        "TWILIO_FROM": "+16367472940",
+        "WEBHOOK_SUFFIX": "default",
+        "FAKE_TWILIO": "0",
+        "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+        "REDIS_URL": "${{ secrets.REDIS_URL }}"
+      }
+    },
+    "worker-services": {
+      "source": {
+        "repo": "https://github.com/YOUR_GITHUB_USERNAME/leadgenie-repo.git"
+      },
+      "rootDirectory": "my-saas-platform/apps/worker-services",
+      "buildCommand": "npm install",
+      "startCommand": "node src/campaignSender.js",
+      "variables": {
+        "NODE_ENV": "production",
+        "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
+        "TWILIO_AUTH_TOKEN": "${{ secrets.TWILIO_AUTH_TOKEN }}",
+        "TWILIO_TWIML_APP_SID": "${{ secrets.TWILIO_TWIML_APP_SID }}",
+        "TWILIO_FROM": "+16367472940",
+        "FAKE_TWILIO": "0",
+        "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+        "REDIS_URL": "${{ secrets.REDIS_URL }}"
+      }
+    },
+    "frontend": {
+      "source": {
+        "repo": "https://github.com/YOUR_GITHUB_USERNAME/leadgenie-repo.git"
+      },
+      "rootDirectory": "my-saas-platform/apps/Dashboard-Dark",
+      "buildCommand": "npm install && npm run build",
+      "startCommand": "npm run preview",
+      "variables": {
+        "NODE_ENV": "production",
+        "VITE_DEV_AUTH_EMAIL": "admin@example.com",
+        "VITE_DEV_AUTH_PASSWORD": "supersecret",
+        "VITE_API_URL": "${{ services.backend-api.url }}"
+      }
+    }
+  },
+  "variables": {
+    "shared": {
+      "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+      "REDIS_URL": "${{ secrets.REDIS_URL }}"
+    }
+  }
+}
