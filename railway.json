@@ -46,7 +46,7 @@
         "repo": "https://github.com/YOUR_GITHUB_USERNAME/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/Dashboard-Dark",
-      "buildCommand": "npm install && npm run build && npm run preview",
+      "buildCommand": "npm install && npm run build",
       "startCommand": "npm run preview",
       "variables": {
         "NODE_ENV": "production",
