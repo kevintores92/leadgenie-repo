@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import AppShell from '../components/AppShell';
+import { useSession } from 'next-auth/react';
 
 export default function Settings() {
-  const ORG = 'demo-org-id';
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [aiRepliesEnabled, setAiRepliesEnabled] = useState(false);
   const [aiCallsEnabled, setAiCallsEnabled] = useState(false);
@@ -12,44 +13,124 @@ export default function Settings() {
   const [migrationError, setMigrationError] = useState(null);
 
   useEffect(() => {
+    if (!session?.user?.id) {
+      setLoading(false);
+      return;
+    }
+
     (async () => {
       try {
-        const resp = await fetch('/settings', { headers: { 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' } });
+        const orgId = session?.user?.orgId || 'unknown';
+        const resp = await fetch(`/api/settings`, {
+          headers: {
+            'authorization': `Bearer ${session?.accessToken || ''}`,
+            'x-organization-id': orgId
+          }
+        });
+        if (!resp.ok) throw new Error('Failed to load settings');
         const j = await resp.json();
         setAiRepliesEnabled(!!j.aiRepliesEnabled);
         setAiCallsEnabled(!!j.aiCallsEnabled);
         setReenqueueDeferred(j.reenqueueDeferred === undefined ? true : !!j.reenqueueDeferred);
         setDuplicateWindowHours(Number(j.duplicateWindowHours || 24));
-        const support = await fetch('/settings/feature-support', { headers: { 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' } }).then(r=>r.json()).catch(()=>({ migrationApplied: false }));
+        
+        const support = await fetch(`/api/settings/feature-support`, {
+          headers: {
+            'authorization': `Bearer ${session?.accessToken || ''}`,
+            'x-organization-id': orgId
+          }
+        }).then(r=>r.json()).catch(()=>({ migrationApplied: false }));
         setMigrationApplied(!!support.migrationApplied);
         if (!support.migrationApplied && support.error) setMigrationError(support.error);
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+        console.error('Failed to load settings:', e);
+      }
       setLoading(false);
     })();
-  }, []);
+  }, [session]);
+
+  if (!session) {
+    return (
+      <AppShell>
+        <div className="p-6">
+          <h1 className="text-2xl font-semibold mb-4">Settings</h1>
+          <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-800">
+            Please sign in to access settings
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   const toggleReplies = async (value) => {
     // Check wallet sufficiency before enabling
     if (value) {
-      const resp = await fetch('/wallet/balance', { headers: { 'x-organization-id': ORG } });
-      const j = await resp.json();
-      const balance = Number(j.balance || 0);
-      const estimatedPerReply = 0.01 * 2; // markup
-      if (balance < estimatedPerReply * 1.1) return alert('Insufficient wallet balance to enable AI Replies');
+      try {
+        const resp = await fetch('/api/wallet/balance', {
+          headers: { 'authorization': `Bearer ${session?.accessToken || ''}` }
+        });
+        if (!resp.ok) throw new Error('Failed to check balance');
+        const j = await resp.json();
+        const balance = Number(j.balance || 0);
+        const estimatedPerReply = 0.01 * 2; // markup
+        if (balance < estimatedPerReply * 1.1) {
+          setAiRepliesEnabled(false);
+          return alert('Insufficient wallet balance to enable AI Replies');
+        }
+      } catch (e) {
+        console.error('Failed to check wallet:', e);
+        return alert('Unable to verify wallet balance');
+      }
     }
     setAiRepliesEnabled(value);
-    await fetch('/settings/ai-replies-toggle', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify({ enabled: value }) });
+    try {
+      await fetch('/api/settings/ai-replies-toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': `Bearer ${session?.accessToken || ''}`
+        },
+        body: JSON.stringify({ enabled: value })
+      });
+    } catch (e) {
+      console.error('Failed to toggle AI replies:', e);
+      alert('Failed to save setting');
+    }
   };
  
   const toggleCalls = async (value) => {
     if (value) {
-      const resp = await fetch('/wallet/balance', { headers: { 'x-organization-id': ORG } });
-      const j = await resp.json();
-      const balance = Number(j.balance || 0);
-      const estimatedPerCall = 0.25 * 2; // markup
-      if (balance < estimatedPerCall * 1.1) return alert('Insufficient wallet balance to enable AI Calls');
+      try {
+        const resp = await fetch('/api/wallet/balance', {
+          headers: { 'authorization': `Bearer ${session?.accessToken || ''}` }
+        });
+        if (!resp.ok) throw new Error('Failed to check balance');
+        const j = await resp.json();
+        const balance = Number(j.balance || 0);
+        const estimatedPerCall = 0.25 * 2; // markup
+        if (balance < estimatedPerCall * 1.1) {
+          setAiCallsEnabled(false);
+          return alert('Insufficient wallet balance to enable AI Calls');
+        }
+      } catch (e) {
+        console.error('Failed to check wallet:', e);
+        return alert('Unable to verify wallet balance');
+      }
     }
-    await fetch('/settings/ai-calls-toggle', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify({ enabled: value }) });
+    try {
+      await fetch('/api/settings/ai-calls-toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': `Bearer ${session?.accessToken || ''}`
+        },
+        body: JSON.stringify({ enabled: value })
+      });
+      setAiCallsEnabled(value);
+    } catch (e) {
+      console.error('Failed to toggle AI calls:', e);
+      alert('Failed to save setting');
+    }
   };
 
   return (
@@ -80,8 +161,36 @@ export default function Settings() {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-sm">Window:</div>
-              <input type="number" min={1} value={duplicateWindowHours} onChange={(e)=>setDuplicateWindowHours(Number(e.target.value))} className="w-20 border rounded px-2 py-1" />
-              <button onClick={async()=>{ await fetch('/settings/duplicate-window', { method: 'POST', headers: { 'Content-Type':'application/json', 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify({ hours: duplicateWindowHours }) }); alert('Saved'); }} className="btn-primary px-3 py-1">Save</button>
+              <input 
+                type="number" 
+                min={1} 
+                value={duplicateWindowHours} 
+                onChange={(e)=>setDuplicateWindowHours(Number(e.target.value))} 
+                className="w-20 border rounded px-2 py-1" 
+              />
+              <button 
+                onClick={async()=>{ 
+                  try {
+                    const orgId = session?.user?.orgId || 'unknown';
+                    await fetch('/api/settings/duplicate-window', { 
+                      method: 'POST', 
+                      headers: { 
+                        'Content-Type':'application/json', 
+                        'authorization': `Bearer ${session?.accessToken || ''}`,
+                        'x-organization-id': orgId
+                      }, 
+                      body: JSON.stringify({ hours: duplicateWindowHours }) 
+                    }); 
+                    alert('Saved'); 
+                  } catch (e) {
+                    console.error('Failed to save duplicate window:', e);
+                    alert('Failed to save setting');
+                  }
+                }} 
+                className="btn-primary px-3 py-1"
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
@@ -95,7 +204,30 @@ export default function Settings() {
             </div>
             <div>
               <label className="switch">
-                <input type="checkbox" checked={reenqueueDeferred} onChange={async (e) => { setReenqueueDeferred(e.target.checked); await fetch('/settings/reenqueue-toggle', { method: 'POST', headers: { 'Content-Type':'application/json', 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify({ enabled: e.target.checked }) }); }} disabled={migrationApplied === false} />
+                <input 
+                  type="checkbox" 
+                  checked={reenqueueDeferred} 
+                  onChange={async (e) => { 
+                    setReenqueueDeferred(e.target.checked); 
+                    try {
+                      const orgId = session?.user?.orgId || 'unknown';
+                      await fetch('/api/settings/reenqueue-toggle', { 
+                        method: 'POST', 
+                        headers: { 
+                          'Content-Type':'application/json',
+                          'authorization': `Bearer ${session?.accessToken || ''}`,
+                          'x-organization-id': orgId
+                        }, 
+                        body: JSON.stringify({ enabled: e.target.checked }) 
+                      }); 
+                    } catch (err) {
+                      console.error('Failed to toggle reenqueue:', err);
+                      alert('Failed to save setting');
+                      setReenqueueDeferred(!e.target.checked);
+                    }
+                  }} 
+                  disabled={migrationApplied === false} 
+                />
                 <span className="slider" />
               </label>
             </div>
@@ -124,9 +256,20 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* The Start Campaign button area referenced in the request */}
+        {/* Billing / Payment Section */}
+        <div className="card mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Billing & Payments</div>
+              <div className="text-sm muted-text">Manage your subscription and payment methods</div>
+            </div>
+            <button onClick={() => window.location.href = '/billing'} className="btn-primary px-4 py-2">Manage Billing</button>
+          </div>
+        </div>
+
+        {/* The Start Campaign button area */}
         <div className="mt-6">
-          <button className="btn-primary px-4 py-2">Start Campaign</button>
+          <button onClick={() => window.location.href = '/campaigns'} className="btn-primary px-4 py-2">Start Campaign</button>
         </div>
 
         <style jsx>{`

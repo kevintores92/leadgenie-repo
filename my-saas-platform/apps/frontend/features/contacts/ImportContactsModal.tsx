@@ -264,25 +264,7 @@ export default function ImportContactsModal({ open, onClose }: { open: boolean; 
     URL.revokeObjectURL(url);
   };
 
-  const router = useRouter();
-
   if (!open) return null;
-
-  const openMappingPage = () => {
-    try {
-      // persist csv text so mapping page can reconstruct headers/rows
-      if (csvText) {
-        sessionStorage.setItem('import_csv_text', csvText);
-        sessionStorage.setItem('import_file_name', file?.name || 'import.csv');
-        router.push('/app/import-mapping');
-      } else {
-        alert('No parsed file available for mapping.');
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Failed to open mapping page');
-    }
-  };
 
   return (
     <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
@@ -347,21 +329,31 @@ export default function ImportContactsModal({ open, onClose }: { open: boolean; 
             )}
           </div>
 
-          {/* Mapping moved to a dedicated page to allow larger layout and better UX */}
+          {/* Mapping UI - inline in modal */}
           {headers.length > 0 && (
             <div>
               <label className="block text-sm font-medium muted-text mb-2">Header Mapping</label>
-              <div className="bg-surface p-4 rounded border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-foreground">Detected columns: {headers.length}</div>
-                    <div className="text-xs muted-text">Preview {previewRows.length} rows • {file?.name}</div>
+              <div className="bg-surface p-4 rounded border border-border space-y-3 max-h-64 overflow-y-auto">
+                {DATABASE_FIELDS.map(dbField => (
+                  <div key={dbField.value} className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-foreground">{dbField.label}</div>
+                    </div>
+                    <select
+                      value={mapping[dbField.value] || ''}
+                      onChange={(e) => updateMapping(dbField.value, e.target.value)}
+                      className="border border-border rounded px-3 py-2 text-sm bg-surface text-foreground"
+                    >
+                      <option value="">-- Don't Import --</option>
+                      {headers.map(h => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={openMappingPage} className="btn-primary px-3 py-2 rounded text-sm">Open Mapping Page</button>
-                    <button onClick={removeFile} className="ghost-btn px-3 py-2 rounded text-sm">Remove File</button>
-                  </div>
-                </div>
+                ))}
+              </div>
+              <div className="mt-3 text-xs muted-text">
+                Detected columns: {headers.length} • Preview {previewRows.length} rows
               </div>
             </div>
           )}
