@@ -2,12 +2,9 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
-
-COPY prisma ./prisma
-COPY src ./src
 COPY . ./
+
+RUN npm ci
 
 ENV NODE_ENV=production
 
