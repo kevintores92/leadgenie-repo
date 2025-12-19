@@ -29,7 +29,7 @@
       },
       "rootDirectory": "my-saas-platform/apps/worker-services",
       "buildCommand": "npm ci",
-      "startCommand": "npx prisma generate && node src/campaignSender.js",
+      "startCommand": "node src/campaignSender.js",
       "variables": {
         "NODE_ENV": "production",
         "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
@@ -48,7 +48,7 @@
       },
       "rootDirectory": "my-saas-platform/apps/Dashboard-Dark",
       "buildCommand": "npm ci && npm run build",
-      "startCommand": "npm run start",
+      "startCommand": "node_modules/.bin/serve -s dist/public -l $PORT",
       "variables": {
         "NODE_ENV": "production",
         "VITE_DEV_AUTH_EMAIL": "admin@example.com",
