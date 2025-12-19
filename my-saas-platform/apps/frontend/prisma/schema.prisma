@@ -31,6 +31,7 @@ model Contact {
   mailingCity        String?
   mailingState       String?
   mailingZip         String?
+  mailingCounty      String?
   assignedNumberId   String?
   status             String?
   nextEligibleAt     DateTime?
@@ -166,22 +167,25 @@ model Message {
 }
 
 model Organization {
-  id               String          @id
-  name             String
-  createdAt        DateTime        @default(now())
-  walletBalance    Float           @default(0.0)
-  aiRepliesEnabled Boolean         @default(false)
-  aiCallsEnabled   Boolean         @default(false)
-  plan             Plan            @default(STARTER)
-  marketplaces     String[]        @default([])
-  areaCode         String?
-  timeZone         String?
-  Activity         Activity[]
-  Brand            Brand[]
-  Contact          Contact[]
-  SendingNumber    SendingNumber[]
-  Usage            Usage[]
-  User             User[]
+  id                      String                    @id
+  name                    String
+  createdAt               DateTime                  @default(now())
+  walletBalance           Float                     @default(0.0)
+  aiRepliesEnabled        Boolean                   @default(false)
+  aiCallsEnabled          Boolean                   @default(false)
+  plan                    Plan                      @default(STARTER)
+  marketplaces            String[]                  @default([])
+  areaCode                String?
+  timeZone                String?
+  pricingMarkupPercent    Int                       @default(30)
+  Activity                Activity[]
+  Brand                   Brand[]
+  Contact                 Contact[]
+  SendingNumber           SendingNumber[]
+  Usage                   Usage[]
+  User                    User[]
+  wallet                  OrganizationWallet?
+  subscription            OrganizationSubscription?
 }
 
 model PhoneNumber {
@@ -261,3 +265,71 @@ enum Plan {
   STARTER
   PRO
 }
+
+model OrganizationWallet {
+  id              String                 @id @default(uuid())
+  organizationId  String                 @unique
+  balanceCents    Int                    @default(0)
+  isFrozen        Boolean                @default(false)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions    WalletTransaction[]
+}
+
+model WalletTransaction {
+  id             String                 @id @default(uuid())
+  walletId       String
+  organizationId String
+  type           WalletTransactionType
+  amountCents    Int
+  referenceId    String?
+  createdAt      DateTime               @default(now())
+  wallet         OrganizationWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([walletId])
+}
+
+model OrganizationSubscription {
+  id               String               @id @default(uuid())
+  organizationId   String               @unique
+  provider         BillingProvider
+  providerSubId    String               @unique
+  planId           String
+  status           SubscriptionStatus
+  currentPeriodEnd DateTime
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+enum WalletTransactionType {
+  PAYMENT_TOPUP
+  MESSAGE_DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum BillingProvider {
+  PAYPAL
+  STRIPE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
+
+model WebhookEvent {
+  id        String   @id @default(uuid())
+  externalId String   @unique
+  type      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([type])
+}
+

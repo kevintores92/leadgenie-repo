@@ -38,22 +38,19 @@ type Mapping = Record<string, string>;
 const DATABASE_FIELDS = [
   { value: 'firstName', label: 'First Name' },
   { value: 'lastName', label: 'Last Name' },
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' },
-  { value: 'phoneNumber', label: 'Phone Number' },
-  { value: 'phone2', label: 'Phone 2' },
-  { value: 'phone3', label: 'Phone 3' },
-  { value: 'phone4', label: 'Phone 4' },
-  { value: 'phone5', label: 'Phone 5' },
   { value: 'propertyAddress', label: 'Address' },
   { value: 'propertyCity', label: 'City' },
   { value: 'propertyState', label: 'State' },
   { value: 'propertyZip', label: 'Zip' },
   { value: 'mailingAddress', label: 'Mailing Address' },
-  { value: 'mailingUnit', label: 'Mailing Unit #' },
   { value: 'mailingCity', label: 'Mailing City' },
   { value: 'mailingState', label: 'Mailing State' },
   { value: 'mailingZip', label: 'Mailing Zip' },
+  { value: 'phone', label: 'Phone 1' },
+  { value: 'phone2', label: 'Phone 2' },
+  { value: 'phone3', label: 'Phone 3' },
+  { value: 'phone4', label: 'Phone 4' },
+  { value: 'phone5', label: 'Phone 5' },
   ...Array.from({ length: 10 }).map((_, i) => ({ value: `custom${i+1}`, label: `Custom ${i+1}` }))
 ];
 

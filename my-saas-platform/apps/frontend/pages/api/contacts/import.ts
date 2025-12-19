@@ -73,11 +73,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         propertyCity: r.propertyCity || null,
         propertyState: r.propertyState || null,
         propertyZip: r.propertyZip || null,
+        propertyCounty: r.propertyCounty || null,
         mailingAddress: r.mailingAddress || null,
         mailingUnit: r.mailingUnit || null,
         mailingCity: r.mailingCity || null,
         mailingState: r.mailingState || null,
         mailingZip: r.mailingZip || null,
+        mailingCounty: r.mailingCounty || null,
       }
 
       const created = await prisma.contact.create({ data })

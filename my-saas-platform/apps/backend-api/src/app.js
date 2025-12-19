@@ -9,8 +9,17 @@ const walletRouter = require('./routes/wallet');
 const settingsRouter = require('./routes/settings');
 const marketplaceRouter = require('./routes/marketplace');
 const adminRouter = require('./routes/admin');
+const paypalWebhookRouter = require('./routes/paypal-webhook');
 
 const app = express();
+
+// PayPal webhook requires raw body for signature verification
+// This must come BEFORE other body parsers for the /webhooks/paypal route
+app.use('/webhooks/paypal', express.raw({ type: 'application/json' }), (req, res, next) => {
+  (req).rawBody = req.body; // Store raw body for signature verification
+  req.body = JSON.parse(req.body.toString());
+  next();
+});
 
 app.use(express.json());
 app.use(morgan('dev'));
@@ -26,6 +35,7 @@ app.use('/wallet', walletRouter);
 app.use('/settings', settingsRouter);
 app.use('/marketplace', marketplaceRouter);
 app.use('/admin', adminRouter);
+app.use('/', paypalWebhookRouter);
 
 app.get('/', (req, res) => res.json({ ok: true }));
 
