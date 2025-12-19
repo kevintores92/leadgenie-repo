@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import AppShell from '../../components/AppShell';
 
 // Mock data — replace with API calls
@@ -18,6 +19,7 @@ const mockTemplates = [
 ];
 
 export default function Campaigns() {
+  const { data: session } = useSession();
   const [campaigns] = useState(mockCampaigns);
   const [showModal, setShowModal] = useState(false);
   const [campaignName, setCampaignName] = useState('');
@@ -39,6 +41,8 @@ export default function Campaigns() {
   }, []);
 
   const startCampaign = async (campaignId) => {
+    if (!session?.user?.orgId) return alert('Not authenticated');
+    
     // Determine interval minutes
     let intervalMinutes = 30;
     if (interval === '30min') intervalMinutes = 30;
@@ -48,20 +52,36 @@ export default function Campaigns() {
     const payload = { batchSize, intervalMinutes };
 
     // Fetch current balance and estimate campaign cost (rough: contacts * $0.01)
-    const respBal = await fetch('/wallet/balance', { headers: { 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' } });
-    const jb = await respBal.json();
-    const balance = jb.balance || 0;
-    const contacts = await fetch('/contacts', { headers: { 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' } }).then(r => r.json()).catch(() => []);
-    const estimatedCost = (contacts?.length || 0) * 0.01;
-    if (estimatedCost > balance) {
-      if (!confirm('Estimated campaign cost exceeds your balance. Campaign will start but will stop when balance reaches $0. Proceed?')) return;
-    }
-
-    // Call backend to enqueue campaign
     try {
-      await fetch(`/campaigns/${campaignId}/start`, {
+      const respBal = await fetch('/api/wallet/balance', { 
+        headers: { 
+          'authorization': `Bearer ${session?.accessToken || ''}`,
+          'x-organization-id': session.user.orgId 
+        } 
+      });
+      const jb = await respBal.json();
+      const balance = jb.balance || 0;
+      
+      const contacts = await fetch('/api/contacts', { 
+        headers: { 
+          'authorization': `Bearer ${session?.accessToken || ''}`,
+          'x-organization-id': session.user.orgId 
+        } 
+      }).then(r => r.json()).catch(() => []);
+      
+      const estimatedCost = (contacts?.length || 0) * 0.01;
+      if (estimatedCost > balance) {
+        if (!confirm('Estimated campaign cost exceeds your balance. Campaign will start but will stop when balance reaches $0. Proceed?')) return;
+      }
+
+      // Call backend to enqueue campaign
+      await fetch(`/api/campaigns/${campaignId}/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'authorization': `Bearer ${session?.accessToken || ''}`,
+          'x-organization-id': session.user.orgId
+        },
         body: JSON.stringify(payload),
       });
       alert('Campaign queued');
@@ -119,8 +139,15 @@ export default function Campaigns() {
                   </button>
                   <button
                     onClick={async () => {
+                      if (!session?.user?.orgId) return alert('Not authenticated');
                       try {
-                        await fetch(`/campaigns/${c.id}/pause`, { method: 'POST', headers: { 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' } });
+                        await fetch(`/api/campaigns/${c.id}/pause`, { 
+                          method: 'POST', 
+                          headers: { 
+                            'authorization': `Bearer ${session?.accessToken || ''}`,
+                            'x-organization-id': session.user.orgId 
+                          } 
+                        });
                         alert('Campaign paused');
                       } catch (err) {
                         console.error(err);
@@ -248,7 +275,11 @@ export default function Campaigns() {
                     setSending(true);
                     const resp = await fetch(`/api/campaigns/${selectedCampaignId}/send`, {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'x-organization-id': 'demo-org-id' },
+                      headers: { 
+                        'Content-Type': 'application/json', 
+                        'authorization': `Bearer ${session?.accessToken || ''}`,
+                        'x-organization-id': session.user.orgId
+                      },
                       body: JSON.stringify({ batchSize, interval }),
                     });
                     const jb = await resp.json();

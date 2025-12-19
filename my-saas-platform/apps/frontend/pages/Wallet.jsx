@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import AppShell from '../components/AppShell';
 
 export default function Wallet() {
+  const { data: session } = useSession();
   const [balance, setBalance] = useState(null);
   const [showTopup, setShowTopup] = useState(false);
   const [amount, setAmount] = useState('');
-  const ORG = 'demo-org-id';
 
   const fetchBalance = async () => {
+    if (!session?.user?.orgId) return;
     try {
-      const resp = await fetch('/wallet/balance', { headers: { 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' } });
+      const resp = await fetch('/api/wallet/balance', { 
+        headers: { 
+          'authorization': `Bearer ${session?.accessToken || ''}`,
+          'x-organization-id': session.user.orgId 
+        } 
+      });
       const j = await resp.json();
       setBalance(j.balance);
     } catch (e) {
@@ -17,13 +24,22 @@ export default function Wallet() {
     }
   };
 
-  useEffect(() => { fetchBalance(); }, []);
+  useEffect(() => { fetchBalance(); }, [session]);
 
   const topup = async () => {
     const amt = Number(amount);
     if (!amt || amt <= 0) return alert('Enter valid amount');
+    if (!session?.user?.orgId) return alert('Not authenticated');
     try {
-      const resp = await fetch('/wallet/topup', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-organization-id': ORG, 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify({ amount: amt }) });
+      const resp = await fetch('/api/billing/create-topup', { 
+        method: 'POST', 
+        headers: { 
+          'Content-Type': 'application/json', 
+          'authorization': `Bearer ${session?.accessToken || ''}`,
+          'x-organization-id': session.user.orgId
+        }, 
+        body: JSON.stringify({ amount: amt }) 
+      });
       const j = await resp.json();
       if (resp.ok) {
         setBalance(j.balance);

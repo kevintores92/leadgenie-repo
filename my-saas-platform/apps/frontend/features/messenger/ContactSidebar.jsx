@@ -2,6 +2,7 @@
 "use client";
 
 import React from 'react';
+import { useSession } from 'next-auth/react';
 import Toolbar from '../../components/Toolbar';
 import {
    UserCircle,
@@ -27,6 +28,7 @@ import { useConversation } from './ConversationProvider.jsx';
 import { useToast } from '../../hooks/use-toast';
 
 function SidebarComposer() {
+   const { data: session } = useSession();
    const { activeConversation, setActiveConversation } = useConversation();
    const { toast } = useToast();
    const [text, setText] = React.useState('');
@@ -42,10 +44,22 @@ function SidebarComposer() {
          toast({ title: 'No recipient', description: 'Select a conversation with a phone number to send.' });
          return;
       }
+      if (!session?.user?.orgId) {
+         toast({ title: 'Not authenticated', description: 'Please sign in' });
+         return;
+      }
       setSending(true);
       const from = activeConversation?.lastFrom || undefined;
       try {
-         const res = await fetch('/api/sms/send', { method: 'POST', headers: { 'content-type':'application/json', 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify({ to: activeConversation.contact.phone, from, body: text.trim() }) });
+         const res = await fetch('/api/sms/send', { 
+            method: 'POST', 
+            headers: { 
+               'content-type':'application/json',
+               'authorization': `Bearer ${session?.accessToken || ''}`,
+               'x-organization-id': session.user.orgId
+            }, 
+            body: JSON.stringify({ to: activeConversation.contact.phone, from, body: text.trim() }) 
+         });
          const json = await res.json();
          if (!res.ok) throw new Error((json && json.error && JSON.stringify(json.error)) || 'Send failed');
          const msg = { id: `m-${Date.now()}`, direction: 'out', text: text.trim(), time: new Date().toISOString(), sid: json.sid, fromNumber: from };
@@ -69,6 +83,7 @@ function SidebarComposer() {
 }
 
 export default function ContactSidebar() {
+   const { data: session } = useSession();
    const { activeConversation, setActiveConversation, conversations, setConversations } = useConversation();
    // Hide sidebar by default when no conversation is active
    if (!activeConversation) return null;
@@ -81,9 +96,14 @@ export default function ContactSidebar() {
 
    React.useEffect(() => {
          // If active conversation doesn't include contact object, attempt to fetch it
-         if (activeConversation && !activeConversation.contact && (activeConversation.contactId || activeConversation.contact_id)) {
+         if (activeConversation && !activeConversation.contact && (activeConversation.contactId || activeConversation.contact_id) && session?.user?.orgId) {
             const cid = activeConversation.contactId || activeConversation.contact_id;
-            fetch(`/contacts/${cid}`, { headers: { 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' } }).then(r => r.json()).then(json => {
+            fetch(`/api/contacts/${cid}`, { 
+               headers: { 
+                  'authorization': `Bearer ${session?.accessToken || ''}`,
+                  'x-organization-id': session.user.orgId
+               } 
+            }).then(r => r.json()).then(json => {
                setActiveConversation({ ...activeConversation, contact: json });
             }).catch(() => {});
          }
@@ -140,7 +160,7 @@ export default function ContactSidebar() {
       if (err) return;
       try {
          setFieldStatus(s => ({ ...s, [k]: { ...(s[k] || {}), saving: true } }));
-         const res = await fetch(`/contacts/${contact.id}`, { method: 'PUT', headers: { 'content-type': 'application/json', 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify({ [k]: value }) });
+         const res = await fetch(`/api/contacts/${contact.id}`, { method: 'PUT', headers: { 'content-type': 'application/json', 'authorization': `Bearer ${session?.accessToken || ''}`, 'x-organization-id': session.user.orgId }, body: JSON.stringify({ [k]: value }) });
          if (!res.ok) throw new Error('Save failed');
          const json = await res.json();
          setActiveConversation({ ...activeConversation, contact: json });
@@ -376,10 +396,10 @@ export default function ContactSidebar() {
                      <div className="mt-4 flex gap-3">
                         <button onClick={async () => {
                            // save
-                           if (!contact || !contact.id) return;
+                           if (!contact || !contact.id || !session?.user?.orgId) return;
                            setSaving(true);
                            try {
-                              const res = await fetch(`/contacts/${contact.id}`, { method: 'PUT', headers: { 'content-type': 'application/json', 'x-organization-id': 'demo-org-id', 'x-user-id': 'demo-user', 'x-user': 'Demo User' }, body: JSON.stringify(form) });
+                              const res = await fetch(`/api/contacts/${contact.id}`, { method: 'PUT', headers: { 'content-type': 'application/json', 'authorization': `Bearer ${session?.accessToken || ''}`, 'x-organization-id': session.user.orgId }, body: JSON.stringify(form) });
                               if (!res.ok) throw new Error('Save failed');
                               const json = await res.json();
                               setActiveConversation({ ...activeConversation, contact: json });

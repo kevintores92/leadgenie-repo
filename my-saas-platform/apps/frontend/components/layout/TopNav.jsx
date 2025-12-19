@@ -5,25 +5,30 @@ import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 import { Search, Bell } from "lucide-react";
-import { navigationItems, currentUser } from '../../features/messenger/data';
+import { navigationItems } from '../../features/messenger/data';
 
 export default function TopNav() {
+  const { data: session } = useSession();
   const [balance, setBalance] = useState(null);
-  const ORG = 'demo-org-id';
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    if (!session?.user?.orgId) return;
     let mounted = true;
     async function fetchData() {
       try {
-        const res = await fetch('/wallet/usage/summary', { headers: { 'x-organization-id': ORG } });
+        const res = await fetch('/api/wallet/balance', { 
+          headers: { 
+            'authorization': `Bearer ${session?.accessToken || ''}`,
+            'x-organization-id': session.user.orgId
+          } 
+        });
         const j = await res.json();
         if (!mounted) return;
         setBalance(Number(j.balance || 0));
-        setTodayCount(j.todayCount || 0);
-        setMonthCount(j.monthCount || 0);
       } catch (e) {
         console.error(e);
       }
@@ -31,7 +36,7 @@ export default function TopNav() {
     fetchData();
     const id = setInterval(fetchData, 15000);
     return () => { mounted = false; clearInterval(id); };
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     setMounted(true)
@@ -103,12 +108,12 @@ export default function TopNav() {
         </div>
         
         <div className="flex items-center gap-3 pr-2 border-l border-border pl-4">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm shadow-lg ${currentUser.avatarColor ?? 'bg-indigo-600'}`}>
-            {currentUser.initials || currentUser.name?.split(' ').map(n => n[0]).join('').slice(0,2)}
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm shadow-lg bg-indigo-600`}>
+            {session?.user?.name?.split(' ').map(n => n[0]).join('').slice(0,2) || '?'}
           </div>
           <div className="hidden md:flex flex-col text-sm leading-tight">
-            <span className="text-white text-[13px] font-semibold truncate">{currentUser.name}</span>
-            <span className="text-[11px] muted-text">Test Account</span>
+            <span className="text-white text-[13px] font-semibold truncate">{session?.user?.name || 'User'}</span>
+            <span className="text-[11px] muted-text">{session?.user?.email || 'Account'}</span>
           </div>
         </div>
       </div>
