@@ -1,7 +1,10 @@
 // --- File: campaign-orchestrator.js ---
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  errorFormat: 'pretty',
+});
 
 // Helper function to simulate applying rotation logic
 function selectNextTemplate(campaignTemplates) {

@@ -1,9 +1,12 @@
 // apps/worker-services/inboundProcessor.ts
+import 'dotenv/config';
 import { Queue, Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { DefaultLlmClient } from '../services/llmClient';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  errorFormat: 'pretty',
+});
 
 function parseRedisConnection() {
   if (process.env.REDIS_URL) {

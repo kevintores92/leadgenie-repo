@@ -1,9 +1,12 @@
 // --- File: ai-classifier-worker.js ---
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { GoogleGenAI } from '@google/genai'; // Assuming you will use a Google AI model
 
 // 1. Initialize Prisma and AI Clients
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  errorFormat: 'pretty',
+});
 // Ensure GEMINI_API_KEY is available in the worker's environment variables
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); 
 

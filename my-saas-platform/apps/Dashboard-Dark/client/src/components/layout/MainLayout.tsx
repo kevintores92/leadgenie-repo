@@ -86,9 +86,9 @@ export default function MainLayout({ children, title }: MainLayoutProps) {
             </div>
             
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-primary hidden lg:inline-block">kevin@leadgenie.online</span>
+              <span className="text-sm text-primary hidden lg:inline-block">alex@veracityhomebuyers.com</span>
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground">KT</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground">A</AvatarFallback>
               </Avatar>
             </div>
           </div>

@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const { Queue, Worker, QueueScheduler } = require('bullmq');
 const IORedis = require('ioredis');
 const { runWarmupOnce } = require('./warmupJob');

@@ -1,5 +1,9 @@
+require('dotenv').config();
+
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  errorFormat: 'pretty',
+});
 
 // Warmup schedule mapping (day => max msgs/min)
 const schedule = [

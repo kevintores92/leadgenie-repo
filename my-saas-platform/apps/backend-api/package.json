@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "start": "node src/server.js",
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.5.0",
+    "@prisma/client": "^5.22.0",
     "csv-parse": "^5.4.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^1.82.0",
@@ -21,7 +22,7 @@
     "twilio": "^4.3.0"
   },
   "devDependencies": {
-    "prisma": "^5.5.0"
+    "prisma": "^5.22.0"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

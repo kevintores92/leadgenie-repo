@@ -1,9 +1,13 @@
+require('dotenv').config();
+
 const { Queue, Worker, QueueScheduler } = require('bullmq');
 const IORedis = require('ioredis');
 const { PrismaClient } = require('@prisma/client');
 const Twilio = require('twilio');
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  errorFormat: 'pretty',
+});
 
 function parseRedisConnection() {
   if (process.env.REDIS_URL) {

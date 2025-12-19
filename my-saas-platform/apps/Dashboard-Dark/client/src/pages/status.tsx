@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, AlertCircle, Clock, XCircle, HelpCircle } from "lucide-react";
+import MainLayout from "@/components/layout/MainLayout";
 
 interface MessageStatus {
   id: string;
@@ -85,6 +86,17 @@ export default function StatusPage() {
     blocked: messages.filter((m) => m.status === "BLOCKED").length,
   };
 
+  const statusTabs = ["all", "delivered", "failed", "held", "deferred", "blocked"] as const;
+  const statusCounts = {
+    all: messages.length,
+    delivered: messages.filter((m) => m.status === "DELIVERED").length,
+    failed: messages.filter((m) => m.status === "FAILED").length,
+    held: messages.filter((m) => m.status === "HELD").length,
+    deferred: messages.filter((m) => m.status === "DEFERRED").length,
+    blocked: messages.filter((m) => m.status === "BLOCKED").length,
+  };
+  const [selectedTab, setSelectedTab] = useState<string>("all");
+
   const filteredMessages =
     activeTab === "all"
       ? messages
@@ -93,130 +105,168 @@ export default function StatusPage() {
         );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Message Status</h1>
-        <p className="text-muted-foreground mt-2">
-          Track the delivery status of your messages
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Delivered</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.delivered}</div>
-            <p className="text-xs text-muted-foreground">Success rate</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Failed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
-            <p className="text-xs text-muted-foreground">Delivery errors</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Held</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.held}</div>
-            <p className="text-xs text-muted-foreground">Pending processing</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Deferred</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {stats.deferred}
+    <MainLayout title="Status">
+      <div className="flex h-full w-full">
+        {/* Secondary Sidebar */}
+        <aside className="w-64 border-r border-border bg-sidebar/30 hidden md:flex flex-col overflow-y-auto">
+          <div className="p-4 space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground px-2 mb-2">
+                Message Status
+              </h2>
+              <nav className="space-y-1">
+                {statusTabs.map((status) => {
+                  const label = status.charAt(0).toUpperCase() + status.slice(1);
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => setActiveTab(status)}
+                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                        activeTab === status
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:bg-accent/50"
+                      }`}
+                    >
+                      {label} {statusCounts[status as keyof typeof statusCounts] > 0 && `(${statusCounts[status as keyof typeof statusCounts]})`}
+                    </button>
+                  );
+                })}
+              </nav>
             </div>
-            <p className="text-xs text-muted-foreground">Retry scheduled</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Blocked</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {stats.blocked}
-            </div>
-            <p className="text-xs text-muted-foreground">Flagged</p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </aside>
 
-      {/* Messages Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Message History</CardTitle>
-          <CardDescription>All message delivery statuses</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="delivered">Delivered</TabsTrigger>
-              <TabsTrigger value="failed">Failed</TabsTrigger>
-              <TabsTrigger value="held">Held</TabsTrigger>
-              <TabsTrigger value="deferred">Deferred</TabsTrigger>
-              <TabsTrigger value="blocked">Blocked</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value={activeTab} className="space-y-4 mt-4">
-              {filteredMessages.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  No messages with this status
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col bg-background/50 relative overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-8">
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Message Status</h1>
+                <p className="text-muted-foreground mt-2">
+                  Track the delivery status of your messages
                 </p>
-              ) : (
-                <div className="space-y-3">
-                  {filteredMessages.map((msg) => {
-                    const config = STATUS_CONFIG[msg.status];
-                    const Icon = config.icon;
-                    return (
-                      <div
-                        key={msg.id}
-                        className="flex items-start gap-4 p-4 border rounded-lg"
-                      >
-                        <div className={`p-2 rounded ${config.color}`}>
-                          <Icon size={16} />
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Delivered</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.delivered}</div>
+                    <p className="text-xs text-muted-foreground">Success rate</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Failed</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
+                    <p className="text-xs text-muted-foreground">Delivery errors</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Held</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-yellow-600">{stats.held}</div>
+                    <p className="text-xs text-muted-foreground">Pending processing</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Deferred</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {stats.deferred}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Retry scheduled</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Blocked</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {stats.blocked}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Flagged</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Messages Table */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Message History</CardTitle>
+                  <CardDescription>All message delivery statuses</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList>
+                      <TabsTrigger value="all">All</TabsTrigger>
+                      <TabsTrigger value="delivered">Delivered</TabsTrigger>
+                      <TabsTrigger value="failed">Failed</TabsTrigger>
+                      <TabsTrigger value="held">Held</TabsTrigger>
+                      <TabsTrigger value="deferred">Deferred</TabsTrigger>
+                      <TabsTrigger value="blocked">Blocked</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value={activeTab} className="space-y-4 mt-4">
+                      {filteredMessages.length === 0 ? (
+                        <p className="text-muted-foreground text-center py-8">
+                          No messages with this status
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {filteredMessages.map((msg) => {
+                            const config = STATUS_CONFIG[msg.status];
+                            const Icon = config.icon;
+                            return (
+                              <div
+                                key={msg.id}
+                                className="flex items-start gap-4 p-4 border rounded-lg"
+                              >
+                                <div className={`p-2 rounded ${config.color}`}>
+                                  <Icon size={16} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-start gap-4">
+                                    <div>
+                                      <p className="font-medium">{msg.contact}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {msg.phone}
+                                      </p>
+                                      <p className="text-sm mt-1">{msg.message}</p>
+                                    </div>
+                                    <div className="text-right flex-shrink-0">
+                                      <span className={`text-sm font-medium ${config.color}`}>
+                                        {config.label}
+                                      </span>
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        {new Date(msg.timestamp).toLocaleString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start gap-4">
-                            <div>
-                              <p className="font-medium">{msg.contact}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {msg.phone}
-                              </p>
-                              <p className="text-sm mt-1">{msg.message}</p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <span className={`text-sm font-medium ${config.color}`}>
-                                {config.label}
-                              </span>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {new Date(msg.timestamp).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+      </div>
+    </MainLayout>
   );
 }
