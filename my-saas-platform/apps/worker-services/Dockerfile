@@ -7,8 +7,6 @@ RUN npm ci
 
 COPY . ./
 
-RUN npx prisma generate
-
 ENV NODE_ENV=production
 
 CMD ["node", "src/campaignSender.js"]
