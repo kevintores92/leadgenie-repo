@@ -28,7 +28,7 @@
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/worker-services",
-      "buildCommand": "npm install",
+      "buildCommand": "npm ci && npx prisma generate",
       "startCommand": "node src/campaignSender.js",
       "variables": {
         "NODE_ENV": "production",
@@ -38,7 +38,8 @@
         "TWILIO_FROM": "+16367472940",
         "FAKE_TWILIO": "0",
         "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
-        "REDIS_URL": "${{ secrets.REDIS_URL }}"
+        "REDIS_URL": "${{ secrets.REDIS_URL }}",
+        "TEMPLATES_CSV": "../../Temporary_Templates.csv"
       }
     },
     "frontend": {
@@ -52,7 +53,7 @@
         "NODE_ENV": "production",
         "VITE_DEV_AUTH_EMAIL": "admin@example.com",
         "VITE_DEV_AUTH_PASSWORD": "supersecret",
-        "VITE_API_URL": "${{ services.backend-api.url }}"
+        "VITE_API_URL": "${{ services.backend.url }}"
       }
     },
     "postgres": {
