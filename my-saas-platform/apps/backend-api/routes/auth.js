@@ -11,6 +11,19 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Simple in-memory user store for now (until DB migration runs)
 const users = new Map();
 
+// Initialize with test user for development
+(async () => {
+  const testPasswordHash = await bcrypt.hash('password123', 10);
+  users.set('test@example.com', {
+    id: 'user-test-001',
+    username: 'test@example.com',
+    email: 'test@example.com',
+    passwordHash: testPasswordHash,
+    orgId: 'org-test-001',
+    activeBrandId: null,
+  });
+})();
+
 async function handleLogin(req, res) {
   try {
     const { username, password } = req.body;

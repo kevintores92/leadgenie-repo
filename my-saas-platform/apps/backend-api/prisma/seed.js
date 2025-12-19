@@ -18,6 +18,30 @@ function normalizePhone(raw) {
 
 async function importCsv() {
   console.log('Importing contacts from CSV:', CSV_PATH);
+  
+  // Ensure test org exists for dev/testing
+  const testOrg = await prisma.organization.upsert({
+    where: { id: 'org-test-001' },
+    update: {},
+    create: {
+      id: 'org-test-001',
+      name: 'Test Organization',
+    },
+  });
+  
+  // Ensure test brand exists
+  await prisma.brand.upsert({
+    where: { id: 'brand-test-001' },
+    update: {},
+    create: {
+      id: 'brand-test-001',
+      name: 'Test Brand',
+      orgId: testOrg.id,
+    },
+  });
+  
+  console.log('Test org and brand initialized');
+  
   if (!fs.existsSync(CSV_PATH)) {
     console.error('CSV file not found at', CSV_PATH);
     return;

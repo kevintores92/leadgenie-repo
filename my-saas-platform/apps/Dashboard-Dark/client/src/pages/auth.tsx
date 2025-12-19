@@ -39,14 +39,14 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-      // Dev preset shortcut: allow immediate login with known dev credentials
-      // (useful while backend is unavailable). Credentials: admin@example.com / supersecret
-      const DEV_PRESET = { username: import.meta.env.VITE_DEV_AUTH_EMAIL || 'admin@example.com', password: import.meta.env.VITE_DEV_AUTH_PASSWORD || 'supersecret' };
+      // Dev preset shortcut: allow immediate login with test credentials
+      // Test account: test@example.com / password123
+      const DEV_PRESET = { username: import.meta.env.VITE_DEV_AUTH_EMAIL || 'test@example.com', password: import.meta.env.VITE_DEV_AUTH_PASSWORD || 'password123' };
       if (formData.email === DEV_PRESET.username && formData.password === DEV_PRESET.password) {
-        const user = { id: 'dev-subscriber', username: DEV_PRESET.username, orgId: 'org-dev', activeBrandId: null };
-        const token = 'dev-token-subscriber';
+        const user = { id: 'user-test-001', username: DEV_PRESET.username, orgId: 'org-test-001', activeBrandId: 'brand-test-001' };
+        const token = 'dev-token-test-user';
         login(user as any, token);
-        toast({ title: 'Success', description: 'Logged in (dev preset)' });
+        toast({ title: 'Success', description: 'Logged in with test account' });
         setLoading(false);
         setLocation('/dashboard');
         return;
