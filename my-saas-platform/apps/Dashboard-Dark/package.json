@@ -7,7 +7,7 @@
     "dev:client": "vite dev --port 5000",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "vite preview --host --port $PORT",
+    "start": "serve -s dist/public -l $PORT",
     "check": "tsc --noEmit"
   },
   "dependencies": {
@@ -61,7 +61,8 @@
     "vaul": "^1.1.2",
     "wouter": "^3.3.5",
     "zod": "^3.25.76",
-    "zustand": "^4.4.1"
+    "zustand": "^4.4.1",
+    "serve": "^14.1.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
