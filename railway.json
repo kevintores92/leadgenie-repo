@@ -28,8 +28,8 @@
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/worker-services",
-      "buildCommand": "npm ci && npx prisma generate",
-      "startCommand": "node src/campaignSender.js",
+      "buildCommand": "npm ci",
+      "startCommand": "npx prisma generate && node src/campaignSender.js",
       "variables": {
         "NODE_ENV": "production",
         "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
