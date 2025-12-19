@@ -3,7 +3,7 @@
   "services": {
     "backend-api": {
       "source": {
-        "repo": "https://github.com/YOUR_GITHUB_USERNAME/leadgenie-repo.git"
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/backend-api",
       "buildCommand": "npm install",
@@ -25,7 +25,7 @@
     },
     "worker-services": {
       "source": {
-        "repo": "https://github.com/YOUR_GITHUB_USERNAME/leadgenie-repo.git"
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/worker-services",
       "buildCommand": "npm install",
@@ -43,7 +43,7 @@
     },
     "frontend": {
       "source": {
-        "repo": "https://github.com/YOUR_GITHUB_USERNAME/leadgenie-repo.git"
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/Dashboard-Dark",
       "buildCommand": "npm install && npm run build",
@@ -54,12 +54,24 @@
         "VITE_DEV_AUTH_PASSWORD": "supersecret",
         "VITE_API_URL": "${{ services.backend-api.url }}"
       }
+    },
+    "postgres": {
+      "image": "postgres:16",
+      "variables": {
+        "POSTGRES_DB": "leadgenie",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "${{ secrets.POSTGRES_PASSWORD }}"
+      }
+    },
+    "redis": {
+      "image": "redis:7-alpine",
+      "variables": {}
     }
   },
   "variables": {
     "shared": {
-      "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
-      "REDIS_URL": "${{ secrets.REDIS_URL }}"
+      "DATABASE_URL": "postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@${{ services.postgres.host }}:5432/leadgenie",
+      "REDIS_URL": "redis://${{ services.redis.host }}:6379"
     }
   }
 }

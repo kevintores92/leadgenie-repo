@@ -2,105 +2,106 @@
 -- WARNING: review carefully before applying to production
 
 -- DropForeignKey
-ALTER TABLE "Brand" DROP CONSTRAINT "Brand_orgId_fkey";
+ALTER TABLE IF EXISTS "Brand" DROP CONSTRAINT IF EXISTS "Brand_orgId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "User" DROP CONSTRAINT "User_orgId_fkey";
+ALTER TABLE IF EXISTS "User" DROP CONSTRAINT IF EXISTS "User_orgId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "User" DROP CONSTRAINT "User_activeBrandId_fkey";
+ALTER TABLE IF EXISTS "User" DROP CONSTRAINT IF EXISTS "User_activeBrandId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "PhoneNumber" DROP CONSTRAINT "PhoneNumber_brandId_fkey";
+ALTER TABLE IF EXISTS "PhoneNumber" DROP CONSTRAINT IF EXISTS "PhoneNumber_brandId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Campaign" DROP CONSTRAINT "Campaign_brandId_fkey";
+ALTER TABLE IF EXISTS "Campaign" DROP CONSTRAINT IF EXISTS "Campaign_brandId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Campaign" DROP CONSTRAINT "Campaign_userId_fkey";
+ALTER TABLE IF EXISTS "Campaign" DROP CONSTRAINT IF EXISTS "Campaign_userId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Message" DROP CONSTRAINT "Message_brandId_fkey";
+ALTER TABLE IF EXISTS "Message" DROP CONSTRAINT IF EXISTS "Message_brandId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Message" DROP CONSTRAINT "Message_contactId_fkey";
+ALTER TABLE IF EXISTS "Message" DROP CONSTRAINT IF EXISTS "Message_contactId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "CallLog" DROP CONSTRAINT "CallLog_brandId_fkey";
+ALTER TABLE IF EXISTS "CallLog" DROP CONSTRAINT IF EXISTS "CallLog_brandId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "CallLog" DROP CONSTRAINT "CallLog_contactId_fkey";
+ALTER TABLE IF EXISTS "CallLog" DROP CONSTRAINT IF EXISTS "CallLog_contactId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Contact" DROP CONSTRAINT "Contact_brandId_fkey";
+ALTER TABLE IF EXISTS "Contact" DROP CONSTRAINT IF EXISTS "Contact_brandId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "Contact" DROP CONSTRAINT "Contact_assignedNumberId_fkey";
+ALTER TABLE IF EXISTS "Contact" DROP CONSTRAINT IF EXISTS "Contact_assignedNumberId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "CustomFieldDefinition" DROP CONSTRAINT "CustomFieldDefinition_brandId_fkey";
+ALTER TABLE IF EXISTS "CustomFieldDefinition" DROP CONSTRAINT IF EXISTS "CustomFieldDefinition_brandId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "ContactCustomField" DROP CONSTRAINT "ContactCustomField_contactId_fkey";
+ALTER TABLE IF EXISTS "ContactCustomField" DROP CONSTRAINT IF EXISTS "ContactCustomField_contactId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "ContactCustomField" DROP CONSTRAINT "ContactCustomField_fieldDefinitionId_fkey";
+ALTER TABLE IF EXISTS "ContactCustomField" DROP CONSTRAINT IF EXISTS "ContactCustomField_fieldDefinitionId_fkey";
 
 -- DropIndex
-DROP INDEX "Contact_brandId_idx";
+DROP INDEX IF EXISTS "Contact_brandId_idx";
 
 -- DropIndex
-DROP INDEX "Contact_brandId_phoneNumber_key";
+DROP INDEX IF EXISTS "Contact_brandId_phoneNumber_key";
 
 -- AlterTable
-ALTER TABLE "Contact" DROP COLUMN "aiScore",
-DROP COLUMN "assignedNumberId",
-DROP COLUMN "brandId",
-DROP COLUMN "lineType1",
-DROP COLUMN "lineType2",
-DROP COLUMN "lineType3",
-DROP COLUMN "mailingAddress",
-DROP COLUMN "mailingCity",
-DROP COLUMN "mailingState",
-DROP COLUMN "mailingZip",
-DROP COLUMN "phone1",
-DROP COLUMN "phone2",
-DROP COLUMN "phone3",
-DROP COLUMN "phoneNumber",
-DROP COLUMN "propertyAddress",
-DROP COLUMN "propertyCity",
-DROP COLUMN "propertyCounty",
-DROP COLUMN "propertyState",
-DROP COLUMN "propertyZip",
-DROP COLUMN "status",
-DROP COLUMN "updatedAt",
-ADD COLUMN     "email" TEXT,
-ADD COLUMN     "lastActivity" TIMESTAMP(3),
-ADD COLUMN     "phone" TEXT;
+ALTER TABLE IF EXISTS "Contact"
+DROP COLUMN IF EXISTS "aiScore",
+DROP COLUMN IF EXISTS "assignedNumberId",
+DROP COLUMN IF EXISTS "brandId",
+DROP COLUMN IF EXISTS "lineType1",
+DROP COLUMN IF EXISTS "lineType2",
+DROP COLUMN IF EXISTS "lineType3",
+DROP COLUMN IF EXISTS "mailingAddress",
+DROP COLUMN IF EXISTS "mailingCity",
+DROP COLUMN IF EXISTS "mailingState",
+DROP COLUMN IF EXISTS "mailingZip",
+DROP COLUMN IF EXISTS "phone1",
+DROP COLUMN IF EXISTS "phone2",
+DROP COLUMN IF EXISTS "phone3",
+DROP COLUMN IF EXISTS "phoneNumber",
+DROP COLUMN IF EXISTS "propertyAddress",
+DROP COLUMN IF EXISTS "propertyCity",
+DROP COLUMN IF EXISTS "propertyCounty",
+DROP COLUMN IF EXISTS "propertyState",
+DROP COLUMN IF EXISTS "propertyZip",
+DROP COLUMN IF EXISTS "status",
+DROP COLUMN IF EXISTS "updatedAt",
+ADD COLUMN     IF NOT EXISTS "email" TEXT,
+ADD COLUMN     IF NOT EXISTS "lastActivity" TIMESTAMP(3),
+ADD COLUMN     IF NOT EXISTS "phone" TEXT;
 
 -- DropTable
-DROP TABLE "Organization";
+DROP TABLE IF EXISTS "Organization";
 
 -- DropTable
-DROP TABLE "Brand";
+DROP TABLE IF EXISTS "Brand";
 
 -- DropTable
-DROP TABLE "User";
+DROP TABLE IF EXISTS "User";
 
 -- DropTable
-DROP TABLE "PhoneNumber";
+DROP TABLE IF EXISTS "PhoneNumber";
 
 -- DropTable
-DROP TABLE "Campaign";
+DROP TABLE IF EXISTS "Campaign";
 
 -- DropTable
-DROP TABLE "Message";
+DROP TABLE IF EXISTS "Message";
 
 -- DropTable
-DROP TABLE "CallLog";
+DROP TABLE IF EXISTS "CallLog";
 
 -- DropTable
-DROP TABLE "CustomFieldDefinition";
+DROP TABLE IF EXISTS "CustomFieldDefinition";
 
 -- DropTable
-DROP TABLE "ContactCustomField";
+DROP TABLE IF EXISTS "ContactCustomField";

@@ -1,6 +1,14 @@
-FROM node:18-alpine
+FROM node:18-bullseye-slim
 
 WORKDIR /app
+
+# Install system deps required by Prisma and for building native modules
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	ca-certificates \
+	openssl \
+	build-essential \
+	python3 \
+ && rm -rf /var/lib/apt/lists/*
 
 # install dependencies (including dev for prisma CLI on build)
 COPY package.json package-lock.json ./
