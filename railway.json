@@ -47,8 +47,6 @@
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/Dashboard-Dark",
-      "buildCommand": "npm ci && npm run build",
-      "startCommand": "node_modules/.bin/serve -s dist/public -l $PORT",
       "variables": {
         "NODE_ENV": "production",
         "VITE_DEV_AUTH_EMAIL": "admin@example.com",
