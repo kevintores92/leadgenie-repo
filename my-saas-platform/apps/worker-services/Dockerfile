@@ -8,7 +8,8 @@ COPY . ./
 # Set working directory to worker service
 WORKDIR /app/my-saas-platform/apps/worker-services
 
-RUN npm ci --ignore-scripts
+# Install dependencies and explicitly generate Prisma client
+RUN npm ci --ignore-scripts && npx prisma generate --schema=./prisma/schema.prisma
 
 ENV NODE_ENV=production
 
