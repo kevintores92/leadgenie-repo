@@ -2,14 +2,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy entire repo to preserve monorepo structure
+# Copy the entire repo first
 COPY . ./
 
-# Set working directory to worker service
+# Now change to worker service directory
 WORKDIR /app/my-saas-platform/apps/worker-services
 
-# Install dependencies and explicitly generate Prisma client
-RUN npm ci --ignore-scripts && npx prisma generate --schema=./prisma/schema.prisma
+# Generate Prisma client BEFORE installing dependencies (which have postinstall hooks)
+RUN npx prisma@5.5.0 generate --schema=./prisma/schema.prisma
+
+# NOW install all dependencies (which won't re-generate Prisma)
+RUN npm ci --ignore-scripts
 
 ENV NODE_ENV=production
 
