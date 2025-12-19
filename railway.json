@@ -2,7 +2,6 @@
   "$schema": "https://railway.app/railway.schema.json",
   "services": {
     "backend-api": {
-      "autoDeploy": false,
       "source": {
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
@@ -44,7 +43,6 @@
       }
     },
     "frontend": {
-      "autoDeploy": false,
       "source": {
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },

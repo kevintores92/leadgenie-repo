@@ -1,0 +1,22 @@
+name: Deploy Worker to Railway
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'my-saas-platform/apps/worker-services/**'
+      - 'railway.json'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy worker-services to Railway
+        run: |
+          npm install -g @railway/cli
+          railway deploy --service worker-services
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
