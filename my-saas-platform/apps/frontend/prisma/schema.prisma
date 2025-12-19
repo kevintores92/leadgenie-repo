@@ -27,6 +27,7 @@ model Contact {
   propertyZip        String?
   propertyCounty     String?
   mailingAddress     String?
+  mailingUnit        String?
   mailingCity        String?
   mailingState       String?
   mailingZip         String?

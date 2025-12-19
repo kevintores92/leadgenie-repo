@@ -45,11 +45,12 @@ const DATABASE_FIELDS = [
   { value: 'phone3', label: 'Phone 3' },
   { value: 'phone4', label: 'Phone 4' },
   { value: 'phone5', label: 'Phone 5' },
-  { value: 'propertyAddress', label: 'Property Address' },
+  { value: 'propertyAddress', label: 'Address' },
   { value: 'propertyCity', label: 'City' },
   { value: 'propertyState', label: 'State' },
   { value: 'propertyZip', label: 'Zip' },
   { value: 'mailingAddress', label: 'Mailing Address' },
+  { value: 'mailingUnit', label: 'Mailing Unit #' },
   { value: 'mailingCity', label: 'Mailing City' },
   { value: 'mailingState', label: 'Mailing State' },
   { value: 'mailingZip', label: 'Mailing Zip' },
@@ -233,11 +234,20 @@ export default function ImportContactsModal({ open, onClose }: { open: boolean; 
       // Post to import API
       const resp = await fetch('/api/contacts/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows: mappedRows }) });
       const jb = await resp.json();
-      if (!resp.ok) throw new Error(jb.error || 'Import failed');
-      alert(`Imported ${jb.importedCount || 0} rows`);
+      if (!resp.ok) {
+        const errorMsg = jb.error || `Import failed with status ${resp.status}`;
+        throw new Error(errorMsg);
+      }
+      const message = `Successfully imported ${jb.importedCount || 0} contact(s)`;
+      const warnings = jb.warnings && jb.warnings.length > 0 
+        ? `\n\nWarnings:\n${jb.warnings.slice(0, 3).join('\n')}${jb.warnings.length > 3 ? `\n... and ${jb.warnings.length - 3} more` : ''}`
+        : '';
+      alert(message + warnings);
       removeFile();
     } catch (e: any) {
-      alert('Import failed: ' + (e?.message || String(e)));
+      const errorMessage = e?.message || String(e) || 'Unknown error occurred';
+      alert('Error importing contacts:\n\n' + errorMessage);
+      console.error('Import error:', e);
     } finally {
       setLoading(false);
     }

@@ -43,11 +43,12 @@ const DATABASE_FIELDS = [
   { value: 'phone3', label: 'Phone 3' },
   { value: 'phone4', label: 'Phone 4' },
   { value: 'phone5', label: 'Phone 5' },
-  { value: 'propertyAddress', label: 'Property Address' },
+  { value: 'propertyAddress', label: 'Address' },
   { value: 'propertyCity', label: 'City' },
   { value: 'propertyState', label: 'State' },
   { value: 'propertyZip', label: 'Zip' },
   { value: 'mailingAddress', label: 'Mailing Address' },
+  { value: 'mailingUnit', label: 'Mailing Unit #' },
   { value: 'mailingCity', label: 'Mailing City' },
   { value: 'mailingState', label: 'Mailing State' },
   { value: 'mailingZip', label: 'Mailing Zip' },
@@ -115,12 +116,21 @@ export default function ImportMappingPage() {
 
       const resp = await fetch('/api/contacts/import', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rows: mappedRows }) });
       const jb = await resp.json();
-      if (!resp.ok) throw new Error(jb.error || 'Import failed');
-      alert(`Imported ${jb.importedCount || 0} rows`);
+      if (!resp.ok) {
+        const errorMsg = jb.error || `Import failed with status ${resp.status}`;
+        throw new Error(errorMsg);
+      }
+      const message = `Successfully imported ${jb.importedCount || 0} contact(s)`;
+      const warnings = jb.warnings && jb.warnings.length > 0 
+        ? `\n\nWarnings:\n${jb.warnings.slice(0, 3).join('\n')}${jb.warnings.length > 3 ? `\n... and ${jb.warnings.length - 3} more` : ''}`
+        : '';
+      alert(message + warnings);
       sessionStorage.removeItem('import_csv_text');
       router.push('/app/contacts');
     } catch (e) {
-      alert('Import failed: ' + (e?.message || String(e)));
+      const errorMessage = e?.message || String(e) || 'Unknown error occurred';
+      alert('Error importing contacts:\n\n' + errorMessage);
+      console.error('Import error:', e);
     } finally {
       setLoading(false);
     }
@@ -151,10 +161,17 @@ export default function ImportMappingPage() {
               </thead>
               <tbody>
                 {DATABASE_FIELDS.map((df, idx) => {
-                  const selectedHeaders = Object.values(mapping).filter(Boolean);
+                  // Get all headers that are currently selected by other fields
+                  const selectedByOthers = new Set();
+                  Object.entries(mapping).forEach(([key, val]) => {
+                    if (key !== df.value && val) selectedByOthers.add(val);
+                  });
+                  
                   const current = mapping[df.value] || '';
-                  const options = headers.filter(h => current === h || !selectedHeaders.includes(h));
+                  // Show only headers that are: (1) currently selected for this field, or (2) not selected by any other field
+                  const options = headers.filter(h => current === h || !selectedByOthers.has(h));
                   const isUnmapped = !current;
+                  
                   return (
                     <tr key={df.value} className={idx % 2 === 0 ? 'bg-surface' : 'bg-surface'}>
                       <td className="px-4 py-3 align-top truncate text-sm text-foreground" title={df.label}>{df.label}</td>

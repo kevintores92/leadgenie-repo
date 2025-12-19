@@ -41,36 +41,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!brand) return res.status(400).json({ error: 'no brand available to attach contacts' })
 
   const createdIds: string[] = []
+  const errors: string[] = []
+  
   for (const r of rows) {
-    const phoneRaw = (r.phone || '').toString().trim()
-    const phone = phoneRaw.replace(/\D/g, '')
-    if (!phone) continue
-
-    const exists = await prisma.contact.findFirst({ where: { brandId: brand.id, phone } })
-    if (exists) continue
-
-    const data: any = {
-      brandId: brand.id,
-      organizationId: orgId || undefined,
-      firstName: r.firstName || (r.name || 'Unknown'),
-      lastName: r.lastName || null,
-      phone,
-      phoneNumber: r.phoneNumber || null,
-      phone2: r.phone2 || r['Phone 2'] || null,
-      phone3: r.phone3 || r['Phone 3'] || null,
-      phone4: r.phone4 || r['Phone 4'] || null,
-      phone5: r.phone5 || r['Phone 5'] || null,
-      propertyAddress: r.propertyAddress || null,
-      propertyCity: r.propertyCity || null,
-      propertyState: r.propertyState || null,
-      propertyZip: r.propertyZip || null,
-      mailingAddress: r.mailingAddress || null,
-      mailingCity: r.mailingCity || null,
-      mailingState: r.mailingState || null,
-      mailingZip: r.mailingZip || null,
-    }
-
     try {
+      const phoneRaw = (r.phone || '').toString().trim()
+      const phone = phoneRaw.replace(/\D/g, '')
+      if (!phone) {
+        errors.push(`Row skipped: missing or invalid phone number`)
+        continue
+      }
+
+      const exists = await prisma.contact.findFirst({ where: { brandId: brand.id, phone } })
+      if (exists) {
+        errors.push(`Contact with phone ${phone} already exists`)
+        continue
+      }
+
+      const data: any = {
+        brandId: brand.id,
+        organizationId: orgId || undefined,
+        firstName: r.firstName || (r.name || 'Unknown'),
+        lastName: r.lastName || null,
+        phone,
+        phoneNumber: r.phoneNumber || null,
+        phone2: r.phone2 || r['Phone 2'] || null,
+        phone3: r.phone3 || r['Phone 3'] || null,
+        phone4: r.phone4 || r['Phone 4'] || null,
+        phone5: r.phone5 || r['Phone 5'] || null,
+        propertyAddress: r.propertyAddress || null,
+        propertyCity: r.propertyCity || null,
+        propertyState: r.propertyState || null,
+        propertyZip: r.propertyZip || null,
+        mailingAddress: r.mailingAddress || null,
+        mailingUnit: r.mailingUnit || null,
+        mailingCity: r.mailingCity || null,
+        mailingState: r.mailingState || null,
+        mailingZip: r.mailingZip || null,
+      }
+
       const created = await prisma.contact.create({ data })
       createdIds.push(created.id)
 
@@ -91,8 +100,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     } catch (e) {
       console.error('import contact error', e)
+      errors.push(`Error importing row: ${(e as Error)?.message || String(e)}`)
     }
   }
 
-  res.status(201).json({ success: true, importedCount: createdIds.length, importedIds: createdIds })
+  if (createdIds.length === 0 && rows.length > 0) {
+    return res.status(400).json({ error: `No contacts imported. Errors: ${errors.join(', ')}` })
+  }
+
+  res.status(201).json({ success: true, importedCount: createdIds.length, importedIds: createdIds, warnings: errors })
 }
