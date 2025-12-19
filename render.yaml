@@ -1,9 +1,9 @@
 services:
   - type: web
     name: genie-frontend
-    root: my-saas-platform/apps/frontend
+    root: my-saas-platform/apps/Dashboard-Dark
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    startCommand: npm run preview
     envVars:
       - key: NODE_ENV
         value: production

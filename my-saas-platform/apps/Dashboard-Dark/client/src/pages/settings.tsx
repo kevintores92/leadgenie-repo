@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   CreditCard, Wallet, User, Bell, Shield, Users, 
   Zap, Check, ChevronRight, Download, Plus, AlertCircle, Settings
@@ -14,9 +15,98 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import MainLayout from "@/components/layout/MainLayout";
+import { authStore } from "@/stores/authStore";
 
 export default function SettingsPage() {
-  const [autoReload, setAutoReload] = useState(true);
+  const navigate = useNavigate();
+  const user = authStore.user;
+  const [autoReload, setAutoReload] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [subscription, setSubscription] = useState(null);
+  const [billingHistory, setBillingHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState({
+    firstName: user?.name?.split(" ")[0] || "User",
+    lastName: user?.name?.split(" ").slice(1).join(" ") || "",
+    email: user?.email || "",
+  });
+
+  useEffect(() => {
+    loadBillingData();
+  }, []);
+
+  const loadBillingData = async () => {
+    try {
+      // Fetch wallet balance
+      const walletRes = await fetch("/api/wallet/balance", {
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      });
+      if (walletRes.ok) {
+        const data = await walletRes.json();
+        setWalletBalance(data.balance || 0);
+      }
+
+      // Fetch subscription info
+      const subRes = await fetch("/api/billing/subscription", {
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      });
+      if (subRes.ok) {
+        setSubscription(await subRes.json());
+      }
+
+      // Fetch billing history
+      const histRes = await fetch("/api/billing/history", {
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      });
+      if (histRes.ok) {
+        setBillingHistory(await histRes.json());
+      }
+    } catch (err) {
+      console.error("Failed to load billing data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTopUp = async (amount: number) => {
+    try {
+      const res = await fetch("/api/billing/create-topup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authStore.token}`
+        },
+        body: JSON.stringify({ amount })
+      });
+      if (res.ok) {
+        await loadBillingData();
+      }
+    } catch (err) {
+      console.error("Failed to create top-up:", err);
+    }
+  };
+
+  const handleUpgradePlan = () => {
+    navigate("/billing?tab=subscription");
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authStore.token}`
+        },
+        body: JSON.stringify(profileData)
+      });
+      if (res.ok) {
+        alert("Profile updated");
+      }
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    }
+  };
 
   return (
     <MainLayout title="Settings">
@@ -45,39 +135,42 @@ export default function SettingsPage() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-xl">Current Plan</CardTitle>
-                        <CardDescription>You are currently on the Pro Plan</CardDescription>
+                        <CardDescription>{subscription?.name || "Pro Plan"}</CardDescription>
                       </div>
-                      <Badge className="bg-primary text-primary-foreground hover:bg-primary/90">Active</Badge>
+                      <Badge className="bg-primary text-primary-foreground hover:bg-primary/90">
+                        {subscription?.status === "active" ? "Active" : "Inactive"}
+                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold font-heading">$799</span>
+                      <span className="text-4xl font-bold font-heading">${subscription?.price || "799"}</span>
                       <span className="text-muted-foreground">/month</span>
                     </div>
                     
                     <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-primary" />
-                        <span>20,000 Outbound Texts</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-primary" />
-                        <span>Unlimited AI Classification</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-primary" />
-                        <span>Unlimited AI Replies</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-primary" />
-                        <span>Inbound AI Calls Included</span>
-                      </div>
+                      {subscription?.features?.map((feature: string, i: number) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-primary" />
+                          <span>{feature}</span>
+                        </div>
+                      )) || (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-primary" />
+                            <span>20,000 Outbound Texts</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Check className="h-4 w-4 text-primary" />
+                            <span>Unlimited AI Classification</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                   <CardFooter className="flex gap-3">
-                    <Button variant="outline" className="flex-1 border-border/50">Downgrade</Button>
-                    <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">Upgrade Plan</Button>
+                    <Button variant="outline" className="flex-1 border-border/50" disabled>Downgrade</Button>
+                    <Button onClick={handleUpgradePlan} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">Upgrade Plan</Button>
                   </CardFooter>
                 </Card>
 
@@ -114,30 +207,32 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[
-                      { date: "Dec 01, 2025", amount: "$799.00", status: "Paid", invoice: "#INV-2025-012" },
-                      { date: "Nov 01, 2025", amount: "$799.00", status: "Paid", invoice: "#INV-2025-011" },
-                      { date: "Oct 01, 2025", amount: "$799.00", status: "Paid", invoice: "#INV-2025-010" },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 hover:bg-secondary/20 rounded-lg transition-colors">
-                        <div className="flex items-center gap-4">
-                           <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center text-muted-foreground">
-                             <CreditCard className="h-5 w-5" />
-                           </div>
-                           <div>
-                             <p className="font-medium">{item.date}</p>
-                             <p className="text-xs text-muted-foreground">{item.invoice}</p>
-                           </div>
+                    {billingHistory && billingHistory.length > 0 ? (
+                      billingHistory.map((item: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between p-2 hover:bg-secondary/20 rounded-lg transition-colors">
+                          <div className="flex items-center gap-4">
+                             <div className="h-10 w-10 rounded-full bg-secondary/50 flex items-center justify-center text-muted-foreground">
+                               <CreditCard className="h-5 w-5" />
+                             </div>
+                             <div>
+                               <p className="font-medium">{new Date(item.date).toLocaleDateString()}</p>
+                               <p className="text-xs text-muted-foreground">{item.invoiceId}</p>
+                             </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <span className="font-mono">${item.amount}</span>
+                            <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-transparent">{item.status}</Badge>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-6">
-                          <span className="font-mono">{item.amount}</span>
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-transparent">{item.status}</Badge>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-muted-foreground text-center py-8">
+                        No billing history available
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -155,11 +250,11 @@ export default function SettingsPage() {
                     <CardDescription>Used for outbound calls and extra texts</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-5xl font-bold font-heading mb-6 text-foreground">$52.40</div>
+                    <div className="text-5xl font-bold font-heading mb-6 text-foreground">${walletBalance.toFixed(2)}</div>
                     <div className="grid grid-cols-3 gap-3">
-                      <Button variant="outline" className="border-border/50 hover:border-primary hover:text-primary transition-all">$20</Button>
-                      <Button variant="outline" className="border-border/50 hover:border-primary hover:text-primary transition-all">$50</Button>
-                      <Button variant="outline" className="border-border/50 hover:border-primary hover:text-primary transition-all">$100</Button>
+                      <Button onClick={() => handleTopUp(20)} variant="outline" className="border-border/50 hover:border-primary hover:text-primary transition-all">$20</Button>
+                      <Button onClick={() => handleTopUp(50)} variant="outline" className="border-border/50 hover:border-primary hover:text-primary transition-all">$50</Button>
+                      <Button onClick={() => handleTopUp(100)} variant="outline" className="border-border/50 hover:border-primary hover:text-primary transition-all">$100</Button>
                     </div>
                   </CardContent>
                   <CardFooter>
@@ -230,7 +325,9 @@ export default function SettingsPage() {
                 <CardContent className="space-y-6">
                   <div className="flex items-center gap-6">
                     <Avatar className="h-20 w-20 ring-4 ring-secondary">
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xl">JD</AvatarFallback>
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                        {profileData.firstName[0]}{profileData.lastName[0]}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="space-y-2">
                       <Button variant="outline" size="sm" className="border-border/50">Change Avatar</Button>
@@ -241,21 +338,37 @@ export default function SettingsPage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="grid gap-2">
                       <Label htmlFor="firstName">First name</Label>
-                      <Input id="firstName" defaultValue="John" className="bg-secondary/30 border-border/50" />
+                      <Input 
+                        id="firstName" 
+                        value={profileData.firstName} 
+                        onChange={(e) => setProfileData({...profileData, firstName: e.target.value})}
+                        className="bg-secondary/30 border-border/50" 
+                      />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="lastName">Last name</Label>
-                      <Input id="lastName" defaultValue="Doe" className="bg-secondary/30 border-border/50" />
+                      <Input 
+                        id="lastName" 
+                        value={profileData.lastName}
+                        onChange={(e) => setProfileData({...profileData, lastName: e.target.value})}
+                        className="bg-secondary/30 border-border/50" 
+                      />
                     </div>
                   </div>
 
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" defaultValue="office@goblinvestments.com" className="bg-secondary/30 border-border/50" />
+                    <Input 
+                      id="email" 
+                      value={profileData.email}
+                      onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                      className="bg-secondary/30 border-border/50" 
+                      type="email"
+                    />
                   </div>
                 </CardContent>
                 <CardFooter className="border-t border-border/50 pt-6">
-                  <Button className="bg-primary hover:bg-primary/90">Save Changes</Button>
+                  <Button onClick={handleSaveProfile} className="bg-primary hover:bg-primary/90">Save Changes</Button>
                 </CardFooter>
               </Card>
 
