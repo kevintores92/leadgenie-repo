@@ -4,10 +4,7 @@ WORKDIR /app
 
 COPY . ./
 
-RUN npm ci
-
-# Ensure Prisma can find schema
-ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/node_modules/@prisma/engines/query-engine-linux-musl
+RUN npm ci --ignore-scripts
 
 ENV NODE_ENV=production
 
