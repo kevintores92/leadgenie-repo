@@ -1,5 +1,10 @@
--- CreateEnum
-CREATE TYPE "UploadJobStatus" AS ENUM ('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED');
+-- CreateEnum only if missing
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'UploadJobStatus') THEN
+        CREATE TYPE "UploadJobStatus" AS ENUM ('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED');
+    END IF;
+END $$;
 
 -- CreateTable
 CREATE TABLE "UploadJob" (
