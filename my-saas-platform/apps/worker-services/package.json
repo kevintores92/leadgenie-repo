@@ -7,14 +7,15 @@
 		"schema": "./prisma/schema.prisma"
 	},
 	"scripts": {
-		"postinstall": "prisma generate",
-		"prisma:generate": "prisma generate",
+		"postinstall": "prisma generate --schema=./prisma/schema.prisma",
+		"prisma:generate": "prisma generate --schema=./prisma/schema.prisma",
 		"seed": "node db/seed.js",
 		"start": "node src/campaignSender.js",
 		"test": "jest --runInBand"
 	},
 	"dependencies": {
 		"@prisma/client": "^5.22.0",
+		"prisma": "^5.22.0",
 		"bullmq": "^1.82.0",
 		"dotenv": "^17.2.3",
 		"ioredis": "^5.3.2",
