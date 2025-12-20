@@ -9,6 +9,7 @@ const walletRouter = require('./routes/wallet');
 const settingsRouter = require('./routes/settings');
 const marketplaceRouter = require('./routes/marketplace');
 const adminRouter = require('./routes/admin');
+const aiRouter = require('./routes/ai');
 const paypalWebhookRouter = require('./routes/paypal-webhook');
 const uploadRouter = require('../routes/upload');
 
@@ -36,6 +37,7 @@ app.use('/wallet', walletRouter);
 app.use('/settings', settingsRouter);
 app.use('/marketplace', marketplaceRouter);
 app.use('/admin', adminRouter);
+app.use('/ai', aiRouter);
 app.use('/upload', uploadRouter);
 app.use('/', paypalWebhookRouter);
 

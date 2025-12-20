@@ -87,6 +87,17 @@ router.post('/phone-scrub', authenticate, upload.single('file'), async (req, res
     const userId = req.user?.id;
     const orgId = req.user?.orgId;
 
+    // Optional: mapping + brandId come as multipart fields
+    let mapping = null;
+    if (req.body?.mapping) {
+      try {
+        mapping = JSON.parse(req.body.mapping);
+      } catch {
+        return res.status(400).json({ error: 'Invalid mapping JSON' });
+      }
+    }
+    const brandId = req.body?.brandId ? String(req.body.brandId) : null;
+
     if (!userId || !orgId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -126,6 +137,9 @@ router.post('/phone-scrub', authenticate, upload.single('file'), async (req, res
         orgId,
         filePath: req.file.path,
         filename: req.file.originalname,
+        mapping,
+        brandId,
+        storeUnmappedCustomFields: true,
       },
       {
         attempts: 3,

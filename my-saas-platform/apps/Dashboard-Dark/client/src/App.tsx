@@ -16,6 +16,7 @@ import CampaignsPage from "@/pages/campaigns";
 import DripsPage from "@/pages/drips";
 import StatusPage from "@/pages/status";
 import NotFound from "@/pages/not-found";
+import LandingPage from "@/pages/landing";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 const WS_URL = import.meta.env.VITE_WS_URL || undefined;
@@ -73,9 +74,7 @@ function Router() {
         </>
       ) : (
         <>
-          <Route path="/">
-            <Redirect to="/auth" />
-          </Route>
+          <Route path="/" component={LandingPage} />
           <Route path="/:rest*">
             <Redirect to="/auth" />
           </Route>

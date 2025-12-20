@@ -18,7 +18,17 @@ router.get('/', async (req, res) => {
   // file-backed settings (fallback until DB migration applied)
   const fsSettings = readSettings();
   const orgSettings = fsSettings[orgId] || {};
-  res.json({ aiRepliesEnabled: !!org.aiRepliesEnabled, aiCallsEnabled: !!org.aiCallsEnabled, reenqueueDeferred: !!orgSettings.reenqueueDeferred, duplicateWindowHours: Number(orgSettings.duplicateWindowHours || 24) });
+  res.json({
+    aiRepliesEnabled: !!org.aiRepliesEnabled,
+    aiCallsEnabled: !!org.aiCallsEnabled,
+    aiWarmQualificationDepth: org.aiWarmQualificationDepth || 'FULL',
+    aiColdQualificationDepth: org.aiColdQualificationDepth || 'FULL',
+    aiCallRecordingEnabled: !!org.aiCallRecordingEnabled,
+    aiRecordingConsentLine: org.aiRecordingConsentLine || null,
+    aiMinMotivationIndicatorsForHot: Number(org.aiMinMotivationIndicatorsForHot || 2),
+    reenqueueDeferred: !!orgSettings.reenqueueDeferred,
+    duplicateWindowHours: Number(orgSettings.duplicateWindowHours || 24),
+  });
 });
 
 // feature support endpoint - checks if nextEligibleAt column exists
@@ -46,6 +56,50 @@ router.post('/ai-calls-toggle', async (req, res) => {
   if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'invalid payload' });
   const updated = await prisma.organization.update({ where: { id: orgId }, data: { aiCallsEnabled: enabled } });
   res.json({ aiCallsEnabled: !!updated.aiCallsEnabled });
+});
+
+router.post('/ai-qualification', async (req, res) => {
+  const orgId = req.auth.organizationId;
+  const { warmDepth, coldDepth, minMotivationIndicatorsForHot } = req.body || {};
+
+  const allowed = new Set(['LIGHT', 'STANDARD', 'FULL']);
+  if (warmDepth !== undefined && !allowed.has(String(warmDepth))) return res.status(400).json({ error: 'invalid warmDepth' });
+  if (coldDepth !== undefined && !allowed.has(String(coldDepth))) return res.status(400).json({ error: 'invalid coldDepth' });
+
+  const min = minMotivationIndicatorsForHot !== undefined ? Number(minMotivationIndicatorsForHot) : undefined;
+  if (min !== undefined && (!Number.isFinite(min) || min < 1 || min > 4)) return res.status(400).json({ error: 'invalid minMotivationIndicatorsForHot' });
+
+  const updated = await prisma.organization.update({
+    where: { id: orgId },
+    data: {
+      ...(warmDepth !== undefined ? { aiWarmQualificationDepth: String(warmDepth) } : {}),
+      ...(coldDepth !== undefined ? { aiColdQualificationDepth: String(coldDepth) } : {}),
+      ...(min !== undefined ? { aiMinMotivationIndicatorsForHot: Math.floor(min) } : {}),
+    },
+  });
+
+  res.json({
+    aiWarmQualificationDepth: updated.aiWarmQualificationDepth,
+    aiColdQualificationDepth: updated.aiColdQualificationDepth,
+    aiMinMotivationIndicatorsForHot: updated.aiMinMotivationIndicatorsForHot,
+  });
+});
+
+router.post('/ai-recording', async (req, res) => {
+  const orgId = req.auth.organizationId;
+  const { enabled, consentLine } = req.body || {};
+  if (enabled !== undefined && typeof enabled !== 'boolean') return res.status(400).json({ error: 'invalid enabled' });
+  if (consentLine !== undefined && consentLine !== null && typeof consentLine !== 'string') return res.status(400).json({ error: 'invalid consentLine' });
+
+  const updated = await prisma.organization.update({
+    where: { id: orgId },
+    data: {
+      ...(enabled !== undefined ? { aiCallRecordingEnabled: enabled } : {}),
+      ...(consentLine !== undefined ? { aiRecordingConsentLine: consentLine } : {}),
+    },
+  });
+
+  res.json({ aiCallRecordingEnabled: !!updated.aiCallRecordingEnabled, aiRecordingConsentLine: updated.aiRecordingConsentLine || null });
 });
 
 router.post('/reenqueue-toggle', async (req, res) => {

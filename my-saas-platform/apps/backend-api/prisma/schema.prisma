@@ -16,6 +16,11 @@ model Organization {
   walletBalance        Float                     @default(0.0)
   aiRepliesEnabled     Boolean                   @default(false)
   aiCallsEnabled       Boolean                   @default(false)
+  aiWarmQualificationDepth AiQualificationDepth   @default(FULL)
+  aiColdQualificationDepth AiQualificationDepth   @default(FULL)
+  aiCallRecordingEnabled   Boolean                @default(false)
+  aiRecordingConsentLine   String?
+  aiMinMotivationIndicatorsForHot Int            @default(2)
   plan                 Plan                      @default(STARTER)
   marketplaces         String[]                  @default([])
   areaCode             String?
@@ -145,6 +150,13 @@ model Message {
   sentAt       DateTime?
   twilioSid    String?   @unique
   isAiGenerated Boolean @default(false)
+  aiClassification Json?
+  aiReplyDraft     String?
+  aiSentiment      String?
+  aiStatus         String?
+  aiFlags          Json?
+  aiModel          String?
+  aiReplySentAt    DateTime?
   createdAt    DateTime @default(now())
 }
 
@@ -256,6 +268,12 @@ enum CampaignStatus {
 enum Plan {
   STARTER
   PRO
+}
+
+enum AiQualificationDepth {
+  LIGHT
+  STANDARD
+  FULL
 }
 
 model SendingNumber {
