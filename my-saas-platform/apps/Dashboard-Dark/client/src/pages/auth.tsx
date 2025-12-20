@@ -17,6 +17,7 @@ import bgImage from "@assets/generated_images/abstract_dark_blue_tech_background
 
 export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [signupMethod, setSignupMethod] = useState<"choice" | "email">("choice");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { login } = useAuthStore();
@@ -99,6 +100,31 @@ export default function AuthPage() {
     }
   };
 
+  const handleGoogleAuth = async () => {
+    setLoading(true);
+    try {
+      const callbackURL = `${window.location.origin}/auth`;
+      const res: any = await authClient.signIn?.social?.({ provider: "google", callbackURL });
+
+      // Some flows redirect immediately; others might return a session.
+      const token = res?.session?.access_token || res?.access_token || null;
+      const user = res?.user || res?.session?.user || null;
+      if (token && user) {
+        login(user, token);
+        toast({ title: "Success", description: "Signed in with Google" });
+        setLocation("/dashboard");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "Google sign-in failed",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -121,7 +147,9 @@ export default function AuthPage() {
 
     try {
       // Try Neon Auth client sign-up
-      const res: any = await authClient.signUp?.email?.({ email: formData.email, password: formData.password, name: formData.name });
+      const signUpArgs: any = { email: formData.email, password: formData.password };
+      if (formData.name?.trim()) signUpArgs.name = formData.name.trim();
+      const res: any = await authClient.signUp?.email?.(signUpArgs);
 
       if (res?.error) {
         throw new Error(res.error?.message || 'Signup failed');
@@ -140,7 +168,9 @@ export default function AuthPage() {
     } catch (error: any) {
       // Fallback to backend signup if Neon Auth fails
       try {
-        const response = await apiRequest('POST', '/auth/signup', { username: formData.email, email: formData.email, password: formData.password, name: formData.name });
+        const payload: any = { username: formData.email, email: formData.email, password: formData.password };
+        if (formData.name?.trim()) payload.name = formData.name.trim();
+        const response = await apiRequest('POST', '/auth/signup', payload);
         const data = await response.json();
         if (data.token && data.user) {
           login(data.user, data.token);
@@ -164,10 +194,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen w-full flex bg-background text-foreground overflow-hidden">
-      {/* DEBUG: temporary banner to verify rendering - remove after debugging */}
-      <div style={{position: 'fixed', top: 8, left: 8, zIndex: 9999, background: '#ff4d4f', color: '#fff', padding: '6px 8px', borderRadius: 6, fontSize: 12}}>
-        DEBUG: auth.tsx rendered
-      </div>
       {/* Left Panel - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative z-10">
         <div className="w-full max-w-md space-y-8">
@@ -263,46 +289,66 @@ export default function AuthPage() {
                   <CardDescription>Start your 14-day free trial today</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 px-0">
-                  <form onSubmit={handleSignup} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input 
-                        id="name" 
-                        placeholder="John Doe" 
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="bg-secondary/50 border-border/50 focus:border-primary focus:ring-primary/20" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
-                      <Input 
-                        id="signup-email" 
-                        type="email" 
-                        placeholder="name@example.com" 
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="bg-secondary/50 border-border/50 focus:border-primary focus:ring-primary/20" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
-                      <Input 
-                        id="signup-password" 
-                        type="password" 
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        className="bg-secondary/50 border-border/50 focus:border-primary focus:ring-primary/20" 
-                      />
-                    </div>
-                    <Button 
-                      type="submit" 
-                      disabled={loading}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-[0_0_20px_rgba(0,180,216,0.3)] transition-all hover:shadow-[0_0_30px_rgba(0,180,216,0.5)]"
-                    >
-                      {loading ? "Creating account..." : "Create Account"}
-                    </Button>
-                  </form>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loading}
+                    onClick={handleGoogleAuth}
+                    className="w-full bg-secondary/30 border-border/50 hover:bg-secondary/50"
+                  >
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                      <path d="M5.84 14.17c-.22-.66-.35-1.36-.35-2.17s.13-1.51.35-2.17V7.01H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.99l3.66-2.82z" fill="#FBBC05" />
+                      <path d="M12 4.81c1.62 0 3.15.56 4.34 1.7l3.25-3.25C17.45 1.09 14.97 0 12 0 7.7 0 3.99 2.47 2.18 7.01l3.66 2.82c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                    </svg>
+                    Sign up with Google
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loading}
+                    onClick={() => setSignupMethod("email")}
+                    className="w-full bg-secondary/30 border-border/50 hover:bg-secondary/50"
+                  >
+                    Sign up with email
+                  </Button>
+
+                  {signupMethod === "email" ? (
+                    <form onSubmit={handleSignup} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-email">Email</Label>
+                        <Input
+                          id="signup-email"
+                          type="email"
+                          placeholder="name@example.com"
+                          required
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className="bg-secondary/50 border-border/50 focus:border-primary focus:ring-primary/20"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-password">Password</Label>
+                        <Input
+                          id="signup-password"
+                          type="password"
+                          required
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          className="bg-secondary/50 border-border/50 focus:border-primary focus:ring-primary/20"
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-[0_0_20px_rgba(0,180,216,0.3)] transition-all hover:shadow-[0_0_30px_rgba(0,180,216,0.5)]"
+                      >
+                        {loading ? "Creating account..." : "Create Account"}
+                      </Button>
+                    </form>
+                  ) : null}
                 </CardContent>
               </Card>
             </TabsContent>
