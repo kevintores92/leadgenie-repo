@@ -22,8 +22,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-// Repo-local public asset for the hero background.
-// Place the image at: AI_LG/public/ai-hero-bg.png
+// Hero background is served from /ai-hero-bg.png.
+// Source of truth lives at: attached_assets/ai-hero-bg.png
+// (Copied into AI_LG/public/ai-hero-bg.png during predev/prebuild.)
 const heroBgCustom = "/ai-hero-bg.png";
 
 const fadeInUp = {
