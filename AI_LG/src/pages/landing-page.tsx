@@ -22,9 +22,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-// Use a repo-local public asset to avoid missing files during deploy.
-// Replace with a dedicated hero image when available.
-const heroBgCustom = "/opengraph.jpg";
+// Repo-local public asset for the hero background.
+// Place the image at: AI_LG/public/ai-hero-bg.png
+const heroBgCustom = "/ai-hero-bg.png";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -163,11 +163,11 @@ export default function LandingPage() {
       </section>
 
       {/* How it Works Section */}
-      <section id="how-it-works" className="py-24 relative bg-background/50">
+      <section id="how-it-works" className="py-8 relative bg-background/50">
         <div className="container mx-auto px-6">
-          <div className="text-center max-w-3xl mx-auto mb-20">
-            <h2 className="text-3xl md:text-5xl font-bold font-heading mb-6">Zero Human Intervention</h2>
-            <p className="text-slate-400 text-lg">
+          <div className="text-center max-w-3xl mx-auto mb-8">
+            <h2 className="text-2xl md:text-4xl font-bold font-heading mb-2">Zero Human Intervention</h2>
+            <p className="text-slate-400 text-sm">
               Set it and forget it. Our autonomous system handles the entire lead generation lifecycle from cold outreach to qualification.
             </p>
           </div>
@@ -176,7 +176,7 @@ export default function LandingPage() {
             {/* Connecting Line */}
             <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-blue-500/0 via-blue-500/50 to-blue-500/0 hidden lg:block" />
 
-            <div className="space-y-24">
+            <div className="space-y-8">
               <Step 
                 number="01" 
                 title="Sign Up & Registry" 
@@ -194,9 +194,9 @@ export default function LandingPage() {
               <Step 
                 number="03" 
                 title="Start Campaign" 
-                description="Launch your campaign with one click. This is where the magic happens and our AI takes over completely."
+                description="Launch your campaign with one click and get 100 complimentary messages to kick things off. This is where the magic happens and our AI takes over completely."
                 icon={<Rocket className="w-8 h-8 text-orange-400" />}
-                align="right"
+                align="left"
               />
             </div>
           </div>

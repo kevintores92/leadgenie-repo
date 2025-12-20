@@ -49,6 +49,20 @@ export default function CampaignsPage() {
     [selectedId]
   );
 
+  const goSetup = (preferredStep: 1 | 2) => {
+    if (preferredStep === 2) return setLocation("/setup?step=2");
+
+    // If business info already exists, skip to upload.
+    try {
+      const raw = localStorage.getItem("ai_leadgenie_business");
+      if (raw) return setLocation("/setup?step=2");
+    } catch {
+      // ignore
+    }
+
+    return setLocation("/setup?step=1");
+  };
+
   return (
     <PageShell>
       <div className="space-y-6">
@@ -61,10 +75,10 @@ export default function CampaignsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setLocation("/setup?step=1")}>
+            <Button variant="outline" onClick={() => goSetup(2)}>
               Upload List
             </Button>
-            <Button onClick={() => setLocation("/setup?step=1")}>Start New Campaign</Button>
+            <Button onClick={() => goSetup(1)}>Start New Campaign</Button>
           </div>
         </div>
 

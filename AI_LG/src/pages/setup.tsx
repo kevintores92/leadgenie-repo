@@ -5,14 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
-function getStepFromLocation(location: string): 1 | 2 {
+function getStepFromWindow(): 1 | 2 {
   try {
-    const url = new URL(location, window.location.origin);
-    const stepRaw = url.searchParams.get("step");
+    const stepRaw = new URLSearchParams(window.location.search).get("step");
     return stepRaw === "2" ? 2 : 1;
   } catch {
     return 1;
@@ -23,13 +29,23 @@ export default function SetupPage() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const step = useMemo(() => getStepFromLocation(location), [location]);
+  // Wouter's `location` may not include the querystring depending on router setup.
+  // Read the `step` from `window.location.search` and re-evaluate when location changes.
+  const step = useMemo(() => getStepFromWindow(), [location]);
 
   const [loading, setLoading] = useState(false);
 
   // Step 1
-  const [businessName, setBusinessName] = useState("");
-  const [website, setWebsite] = useState("");
+  const [legalBusinessName, setLegalBusinessName] = useState("");
+  const [dbaName, setDbaName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [einOrRegistrationNumber, setEinOrRegistrationNumber] = useState("");
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessCountry, setBusinessCountry] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [businessContactName, setBusinessContactName] = useState("");
+  const [businessContactEmail, setBusinessContactEmail] = useState("");
+  const [businessContactPhone, setBusinessContactPhone] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
 
   // Step 2
@@ -39,8 +55,15 @@ export default function SetupPage() {
   >("idle");
 
   useEffect(() => {
-    // If user hits /setup directly, ensure step=1.
-    if (location === "/setup") setLocation("/setup?step=1");
+    // If user hits /setup directly without a `step`, ensure step=1.
+    try {
+      const hasStep = new URLSearchParams(window.location.search).has("step");
+      if (window.location.pathname === "/setup" && !hasStep) {
+        setLocation("/setup?step=1");
+      }
+    } catch {
+      if (location === "/setup") setLocation("/setup?step=1");
+    }
   }, [location, setLocation]);
 
   const goStep1 = () => setLocation("/setup?step=1");
@@ -48,12 +71,34 @@ export default function SetupPage() {
 
   const handleStep1Next = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!businessType) {
+      toast({
+        title: "Missing info",
+        description: "Business type is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Placeholder: backend will register 10DLC brand/campaign.
       localStorage.setItem(
         "ai_leadgenie_business",
-        JSON.stringify({ businessName, website, businessDescription })
+        JSON.stringify({
+          legalBusinessName,
+          dbaName,
+          businessType,
+          einOrRegistrationNumber,
+          businessAddress,
+          businessCountry,
+          websiteUrl,
+          businessContactName,
+          businessContactEmail,
+          businessContactPhone,
+          businessDescription,
+        })
       );
       toast({
         title: "Saved",
@@ -123,28 +168,127 @@ export default function SetupPage() {
               <CardContent>
                 <form className="space-y-4" onSubmit={handleStep1Next}>
                   <div className="space-y-2">
-                    <Label htmlFor="businessName">Business name</Label>
+                    <Label htmlFor="legalBusinessName">Legal business name</Label>
                     <Input
-                      id="businessName"
-                      value={businessName}
-                      onChange={(e) => setBusinessName(e.target.value)}
+                      id="legalBusinessName"
+                      value={legalBusinessName}
+                      onChange={(e) => setLegalBusinessName(e.target.value)}
                       placeholder="Acme Holdings LLC"
                       required
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="website">Website</Label>
+                    <Label htmlFor="dbaName">DBA / brand name (if different)</Label>
                     <Input
-                      id="website"
-                      value={website}
-                      onChange={(e) => setWebsite(e.target.value)}
-                      placeholder="https://yourcompany.com"
+                      id="dbaName"
+                      value={dbaName}
+                      onChange={(e) => setDbaName(e.target.value)}
+                      placeholder="Acme Lead Partners"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="businessDescription">Business description</Label>
+                    <Label htmlFor="businessType">Business type</Label>
+                    <Select value={businessType} onValueChange={setBusinessType}>
+                      <SelectTrigger id="businessType">
+                        <SelectValue placeholder="Select a business type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="llc">LLC</SelectItem>
+                        <SelectItem value="corp">Corporation</SelectItem>
+                        <SelectItem value="sole_prop">Sole Proprietor</SelectItem>
+                        <SelectItem value="nonprofit">Nonprofit</SelectItem>
+                        <SelectItem value="partnership">Partnership</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="einOrRegistrationNumber">
+                      EIN or business registration number
+                    </Label>
+                    <Input
+                      id="einOrRegistrationNumber"
+                      value={einOrRegistrationNumber}
+                      onChange={(e) => setEinOrRegistrationNumber(e.target.value)}
+                      placeholder="12-3456789"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessAddress">Business address</Label>
+                    <Textarea
+                      id="businessAddress"
+                      value={businessAddress}
+                      onChange={(e) => setBusinessAddress(e.target.value)}
+                      placeholder="123 Main St, Suite 100, City, State, ZIP"
+                      className="min-h-[90px]"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessCountry">Country</Label>
+                    <Input
+                      id="businessCountry"
+                      value={businessCountry}
+                      onChange={(e) => setBusinessCountry(e.target.value)}
+                      placeholder="United States"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="websiteUrl">Website URL</Label>
+                    <Input
+                      id="websiteUrl"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      placeholder="https://yourcompany.com"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessContactName">Business contact name</Label>
+                    <Input
+                      id="businessContactName"
+                      value={businessContactName}
+                      onChange={(e) => setBusinessContactName(e.target.value)}
+                      placeholder="Jane Doe"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessContactEmail">Business contact email</Label>
+                    <Input
+                      id="businessContactEmail"
+                      type="email"
+                      value={businessContactEmail}
+                      onChange={(e) => setBusinessContactEmail(e.target.value)}
+                      placeholder="jane@yourcompany.com"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessContactPhone">Business contact phone</Label>
+                    <Textarea
+                      id="businessContactPhone"
+                      value={businessContactPhone}
+                      onChange={(e) => setBusinessContactPhone(e.target.value)}
+                      placeholder="+1 555 555 5555"
+                      className="min-h-[70px]"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessDescription">Business description (optional)</Label>
                     <Textarea
                       id="businessDescription"
                       value={businessDescription}
