@@ -193,13 +193,6 @@ export default function LandingPage() {
               />
               <Step 
                 number="03" 
-                title="Fund Wallet" 
-                description="Add funds to your secure wallet to power your campaigns. Transparent pricing with no hidden fees."
-                icon={<Wallet className="w-8 h-8 text-pink-400" />}
-                align="left"
-              />
-              <Step 
-                number="04" 
                 title="Start Campaign" 
                 description="Launch your campaign with one click. This is where the magic happens and our AI takes over completely."
                 icon={<Rocket className="w-8 h-8 text-orange-400" />}
