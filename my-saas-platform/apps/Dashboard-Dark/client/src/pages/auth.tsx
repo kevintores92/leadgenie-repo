@@ -40,16 +40,18 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
       // Dev preset shortcut: allow immediate login with test credentials
-      // Test account: test@example.com / password123
-      const DEV_PRESET = { username: import.meta.env.VITE_DEV_AUTH_EMAIL || 'test@example.com', password: import.meta.env.VITE_DEV_AUTH_PASSWORD || 'password123' };
-      if (formData.email === DEV_PRESET.username && formData.password === DEV_PRESET.password) {
-        const user = { id: 'user-test-001', username: DEV_PRESET.username, orgId: 'org-test-001', activeBrandId: 'brand-test-001' };
-        const token = 'dev-token-test-user';
-        login(user as any, token);
-        toast({ title: 'Success', description: 'Logged in with test account' });
-        setLoading(false);
-        setLocation('/dashboard');
-        return;
+      // Only enabled in local dev builds
+      if (import.meta.env.DEV) {
+        const DEV_PRESET = { username: import.meta.env.VITE_DEV_AUTH_EMAIL || 'test@example.com', password: import.meta.env.VITE_DEV_AUTH_PASSWORD || 'password123' };
+        if (formData.email === DEV_PRESET.username && formData.password === DEV_PRESET.password) {
+          const user = { id: 'user-test-001', username: DEV_PRESET.username, orgId: 'org-test-001', activeBrandId: 'brand-test-001' };
+          const token = 'dev-token-test-user';
+          login(user as any, token);
+          toast({ title: 'Success', description: 'Logged in with test account' });
+          setLoading(false);
+          setLocation('/dashboard');
+          return;
+        }
       }
     
     try {
@@ -101,17 +103,20 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     // For dev: create a local user and log in without contacting backend
-    try {
-      const userId = `dev-user-${Date.now()}`;
-      const user = { id: userId, username: formData.email, orgId: `org-${Date.now()}`, activeBrandId: null };
-      const token = `dev-token-${Date.now()}`;
-      login(user as any, token);
-      toast({ title: 'Success', description: 'Account created (dev)' });
-      setLocation('/dashboard');
-      setLoading(false);
-      return;
-    } catch (err) {
-      // fall through to existing signup flow if something unusual happens
+    // Only enabled in local dev builds
+    if (import.meta.env.DEV) {
+      try {
+        const userId = `dev-user-${Date.now()}`;
+        const user = { id: userId, username: formData.email, orgId: `org-${Date.now()}`, activeBrandId: null };
+        const token = `dev-token-${Date.now()}`;
+        login(user as any, token);
+        toast({ title: 'Success', description: 'Account created (dev)' });
+        setLocation('/dashboard');
+        setLoading(false);
+        return;
+      } catch (err) {
+        // fall through to existing signup flow if something unusual happens
+      }
     }
 
     try {

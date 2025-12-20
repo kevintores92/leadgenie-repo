@@ -29,26 +29,30 @@ async function verifyDatabase() {
     }
     
     // Check upload jobs
-    const jobCount = await prisma.uploadJob.count();
-    output.push(`\n\nTotal Upload Jobs: ${jobCount}`);
+    if (prisma.uploadJob && typeof prisma.uploadJob.count === 'function') {
+      const jobCount = await prisma.uploadJob.count();
+      output.push(`\n\nTotal Upload Jobs: ${jobCount}`);
     
-    if (jobCount > 0) {
-      const recentJobs = await prisma.uploadJob.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 3
-      });
-      
-      output.push('\nRecent Jobs:');
-      recentJobs.forEach((job, i) => {
-        output.push(`\n  Job ${i+1}:`);
-        output.push(`  - ID: ${job.id}`);
-        output.push(`  - File: ${job.originalFilename}`);
-        output.push(`  - Status: ${job.status}`);
-        output.push(`  - Rows: ${job.totalRows} (Mobile: ${job.mobileCount}, Landline: ${job.landlineCount})`);
-        if (job.errorMessage) {
-          output.push(`  - Error: ${job.errorMessage}`);
-        }
-      });
+      if (jobCount > 0) {
+        const recentJobs = await prisma.uploadJob.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 3
+        });
+
+        output.push('\nRecent Jobs:');
+        recentJobs.forEach((job, i) => {
+          output.push(`\n  Job ${i+1}:`);
+          output.push(`  - ID: ${job.id}`);
+          output.push(`  - File: ${job.originalFilename}`);
+          output.push(`  - Status: ${job.status}`);
+          output.push(`  - Rows: ${job.totalRows} (Mobile: ${job.mobileCount}, Landline: ${job.landlineCount})`);
+          if (job.errorMessage) {
+            output.push(`  - Error: ${job.errorMessage}`);
+          }
+        });
+      }
+    } else {
+      output.push('\n\nUploadJob model not available in Prisma client (run `npx prisma generate`).');
     }
     
     // Check organization count

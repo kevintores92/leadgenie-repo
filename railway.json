@@ -53,7 +53,7 @@
         "NODE_ENV": "production",
         "VITE_DEV_AUTH_EMAIL": "admin@example.com",
         "VITE_DEV_AUTH_PASSWORD": "supersecret",
-        "VITE_API_URL": "${{ services.backend.url }}"
+        "VITE_API_URL": "${{ services.backend-api.url }}"
       }
     },
     "postgres": {
