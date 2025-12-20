@@ -7,7 +7,6 @@
     "prisma:generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "start": "node src/server.js",
-    "seed": "node prisma/seed.js",
     "worker:phone-scrub": "node src/workers/phone-scrub-worker.js"
   },
   "dependencies": {
@@ -33,7 +32,5 @@
   "devDependencies": {
     "prisma": "^5.22.0"
   },
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  }
+  "prisma": {}
 }
