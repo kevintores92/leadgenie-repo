@@ -10,6 +10,7 @@ const settingsRouter = require('./routes/settings');
 const marketplaceRouter = require('./routes/marketplace');
 const adminRouter = require('./routes/admin');
 const paypalWebhookRouter = require('./routes/paypal-webhook');
+const uploadRouter = require('../routes/upload');
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use('/wallet', walletRouter);
 app.use('/settings', settingsRouter);
 app.use('/marketplace', marketplaceRouter);
 app.use('/admin', adminRouter);
+app.use('/upload', uploadRouter);
 app.use('/', paypalWebhookRouter);
 
 app.get('/', (req, res) => res.json({ ok: true }));

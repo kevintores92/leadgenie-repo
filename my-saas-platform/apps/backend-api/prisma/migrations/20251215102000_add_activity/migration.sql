@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS "Activity" (
   "createdAt" TIMESTAMP(3) DEFAULT now()
 );
 
-ALTER TABLE IF EXISTS "Activity" ADD CONSTRAINT IF NOT EXISTS fk_activity_organization FOREIGN KEY ("organizationId") REFERENCES "Organization" (id) ON DELETE CASCADE;
+ALTER TABLE IF EXISTS "Activity" ADD CONSTRAINT fk_activity_organization FOREIGN KEY ("organizationId") REFERENCES "Organization" (id) ON DELETE CASCADE;

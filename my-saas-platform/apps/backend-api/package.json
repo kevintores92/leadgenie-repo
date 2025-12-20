@@ -7,19 +7,28 @@
     "prisma:generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "start": "node src/server.js",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "worker:phone-scrub": "node src/workers/phone-scrub-worker.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
-    "csv-parse": "^5.4.0",
+    "archiver": "^6.0.0",
+    "axios": "^1.6.0",
     "bcryptjs": "^3.0.3",
     "bullmq": "^1.82.0",
+    "csv-parse": "^5.4.0",
     "express": "^4.18.2",
+    "express-fileupload": "^1.5.0",
     "cors": "^2.8.5",
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
-    "twilio": "^4.3.0"
+    "multer": "^1.4.5-lts.1",
+    "phone-number-parser": "^3.0.0",
+    "libphonenumber-js": "^1.10.0",
+    "twilio": "^4.3.0",
+    "uuid": "^9.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "prisma": "^5.22.0"

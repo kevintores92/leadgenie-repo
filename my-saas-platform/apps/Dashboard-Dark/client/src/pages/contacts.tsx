@@ -52,7 +52,8 @@ const STATUS_CONFIG = {
 };
 
 const CONTACT_FIELD_OPTIONS = [
-  "name", "phone", "propertyAddress", "mailingAddress", "status", "groups",
+  "firstName", "lastName", "phone", "propertyAddress", "propertyCity", "propertyState", "propertyZip",
+  "mailingAddress", "mailingCity", "mailingState", "mailingZip", "status", "groups",
   "propertyType", "bedrooms", "bathrooms", "estValue", "estEquity", "estLTV",
   "totalAssessedValue", "lastSaleAmount", "yearBuilt"
 ];
@@ -68,17 +69,24 @@ export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("firstName");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [showImportMapping, setShowImportMapping] = useState(false);
   const [importFileData, setImportFileData] = useState<any>(null);
   const [importFileName, setImportFileName] = useState("");
   const [columnMapping, setColumnMapping] = useState<{ [key: string]: string }>({});
   const [visibleColumns, setVisibleColumns] = useState({
-    name: true,
+    firstName: true,
+    lastName: true,
     phone: true,
     propertyAddress: true,
+    propertyCity: false,
+    propertyState: false,
+    propertyZip: false,
     mailingAddress: true,
+    mailingCity: false,
+    mailingState: false,
+    mailingZip: false,
     status: true,
     groups: true,
     propertyType: false,
@@ -234,6 +242,18 @@ export default function ContactsPage() {
     setSelectedCount(0);
   };
 
+  // Handle column sorting
+  const handleColumnSort = (column: string) => {
+    if (sortBy === column) {
+      // Toggle sort order if clicking same column
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Change sort column and reset to ascending
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+  };
+
   // Get selected contacts
   const selectedContacts = contacts.filter(c => c.selected);
 
@@ -246,11 +266,12 @@ export default function ContactsPage() {
   });
 
   // Search contacts
-  const searchedContacts = filteredContacts.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.propertyAddress.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const searchedContacts = filteredContacts.filter(c => {
+    const fullName = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+    return fullName.includes(searchQuery.toLowerCase()) ||
+      c.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.propertyAddress.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   // Sort contacts
   const sortedContacts = [...searchedContacts].sort((a, b) => {
@@ -337,10 +358,24 @@ export default function ContactsPage() {
         const initialMapping: { [key: string]: string } = {};
         headers.forEach(header => {
           const lowerHeader = header.toLowerCase();
-          if (lowerHeader.includes('name')) initialMapping[header] = 'name';
+          if (lowerHeader.includes('first') && lowerHeader.includes('name')) initialMapping[header] = 'firstName';
+          else if (lowerHeader.includes('last') && lowerHeader.includes('name')) initialMapping[header] = 'lastName';
           else if (lowerHeader.includes('phone') || lowerHeader.includes('mobile')) initialMapping[header] = 'phone';
-          else if (lowerHeader.includes('address') && !lowerHeader.includes('mailing')) initialMapping[header] = 'propertyAddress';
-          else if (lowerHeader.includes('mailing')) initialMapping[header] = 'mailingAddress';
+          else if (lowerHeader.includes('address') && !lowerHeader.includes('mailing')) {
+            if (lowerHeader.includes('city')) initialMapping[header] = 'propertyCity';
+            else if (lowerHeader.includes('state')) initialMapping[header] = 'propertyState';
+            else if (lowerHeader.includes('zip')) initialMapping[header] = 'propertyZip';
+            else initialMapping[header] = 'propertyAddress';
+          }
+          else if (lowerHeader.includes('mailing')) {
+            if (lowerHeader.includes('city')) initialMapping[header] = 'mailingCity';
+            else if (lowerHeader.includes('state')) initialMapping[header] = 'mailingState';
+            else if (lowerHeader.includes('zip')) initialMapping[header] = 'mailingZip';
+            else initialMapping[header] = 'mailingAddress';
+          }
+          else if (lowerHeader.includes('city')) initialMapping[header] = 'propertyCity';
+          else if (lowerHeader.includes('state')) initialMapping[header] = 'propertyState';
+          else if (lowerHeader.includes('zip')) initialMapping[header] = 'propertyZip';
           else if (lowerHeader.includes('type')) initialMapping[header] = 'propertyType';
           else if (lowerHeader.includes('bedroom')) initialMapping[header] = 'bedrooms';
           else if (lowerHeader.includes('bathroom')) initialMapping[header] = 'bathrooms';
@@ -365,6 +400,15 @@ export default function ContactsPage() {
     try {
       const { headers, rawLines } = importFileData;
       
+      // Create the group with filename + timestamp
+      const timestamp = new Date();
+      const newGroupName = `${importFileName} ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`;
+      
+      // Add group if it doesn't exist
+      if (!groups.includes(newGroupName)) {
+        setGroups([...groups, newGroupName]);
+      }
+      
       // Parse contacts using the mapping
       const newContacts = rawLines
         .map((line, idx) => {
@@ -372,7 +416,7 @@ export default function ContactsPage() {
           const contact: any = { 
             id: Date.now() + idx, 
             selected: false,
-            groups: [groupName], // Add to auto-created group
+            groups: [newGroupName], // Add to auto-created group
           };
 
           // Map CSV columns to contact fields based on mapping
@@ -384,28 +428,20 @@ export default function ContactsPage() {
           });
 
           // Ensure required fields exist
-          if (!contact.name) contact.name = '';
+          if (!contact.firstName) contact.firstName = '';
+          if (!contact.lastName) contact.lastName = '';
           if (!contact.phone) contact.phone = '';
           if (!contact.propertyAddress) contact.propertyAddress = '';
           if (!contact.status) contact.status = 'no_status';
 
           return contact;
         })
-        .filter(c => c.name || c.phone); // Filter out empty rows
-
-      // Create the group with filename + timestamp
-      const timestamp = new Date();
-      const groupName = `${importFileName} ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()}`;
-      
-      // Add group if it doesn't exist
-      if (!groups.includes(groupName)) {
-        setGroups([...groups, groupName]);
-      }
+        .filter(c => c.firstName || c.lastName || c.phone); // Filter out empty rows
 
       // Add contacts with the group assigned
       setContacts([...contacts, ...newContacts]);
       
-      console.log(`Imported ${newContacts.length} contacts to group "${groupName}"`);
+      console.log(`Imported ${newContacts.length} contacts to group "${newGroupName}"`);
       
       // Reset import state
       setShowImportMapping(false);
@@ -626,7 +662,13 @@ export default function ContactsPage() {
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem checked={visibleColumns.phone} onCheckedChange={() => toggleColumn('phone')}>Phone</DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem checked={visibleColumns.propertyAddress} onCheckedChange={() => toggleColumn('propertyAddress')}>Property Address</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={visibleColumns.propertyCity} onCheckedChange={() => toggleColumn('propertyCity')}>Property City</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={visibleColumns.propertyState} onCheckedChange={() => toggleColumn('propertyState')}>Property State</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={visibleColumns.propertyZip} onCheckedChange={() => toggleColumn('propertyZip')}>Property Zip</DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem checked={visibleColumns.mailingAddress} onCheckedChange={() => toggleColumn('mailingAddress')}>Mailing Address</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={visibleColumns.mailingCity} onCheckedChange={() => toggleColumn('mailingCity')}>Mailing City</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={visibleColumns.mailingState} onCheckedChange={() => toggleColumn('mailingState')}>Mailing State</DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem checked={visibleColumns.mailingZip} onCheckedChange={() => toggleColumn('mailingZip')}>Mailing Zip</DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem checked={visibleColumns.status} onCheckedChange={() => toggleColumn('status')}>Status</DropdownMenuCheckboxItem>
                   <DropdownMenuCheckboxItem checked={visibleColumns.groups} onCheckedChange={() => toggleColumn('groups')}>Groups</DropdownMenuCheckboxItem>
                   <DropdownMenuSeparator />
@@ -686,12 +728,20 @@ export default function ContactsPage() {
                           className="border-muted-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
                       </TableHead>
-                      <TableHead className="w-[200px] cursor-pointer hover:text-primary transition-colors" onClick={() => handleColumnSort('name')}>
+                      <TableHead className="w-[200px] cursor-pointer hover:text-primary transition-colors" onClick={() => handleColumnSort('firstName')}>
                         <div className="flex items-center gap-1">
-                          Name 
-                          {sortBy === 'name' && <ArrowUpDown className={`h-3 w-3 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />}
+                          First Name 
+                          {sortBy === 'firstName' && <ArrowUpDown className={`h-3 w-3 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />}
                         </div>
                       </TableHead>
+                      {visibleColumns.lastName && (
+                        <TableHead className="w-[200px] cursor-pointer hover:text-primary transition-colors" onClick={() => handleColumnSort('lastName')}>
+                          <div className="flex items-center gap-1">
+                            Last Name
+                            {sortBy === 'lastName' && <ArrowUpDown className={`h-3 w-3 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />}
+                          </div>
+                        </TableHead>
+                      )}
                       {visibleColumns.phone && (
                         <TableHead className="cursor-pointer hover:text-primary transition-colors" onClick={() => handleColumnSort('phone')}>
                           <div className="flex items-center gap-1">
@@ -789,20 +839,41 @@ export default function ContactsPage() {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
                               <AvatarFallback className="bg-secondary text-xs text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary transition-colors">
-                                {contact.name.split(' ').map((n: string) => n[0]).join('')}
+                                {`${contact.firstName || ''} ${contact.lastName || ''}`.split(' ').filter(Boolean).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'UN'}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-sm font-semibold text-foreground">{contact.name}</span>
+                            <span className="text-sm font-semibold text-foreground">{`${contact.firstName || ''} ${contact.lastName || ''}`.trim()}</span>
                           </div>
                         </TableCell>
+                        {visibleColumns.lastName && (
+                          <TableCell className="text-muted-foreground text-sm">{contact.lastName}</TableCell>
+                        )}
                         {visibleColumns.phone && (
                           <TableCell className="text-muted-foreground text-sm font-mono">{contact.phone}</TableCell>
                         )}
                         {visibleColumns.propertyAddress && (
                           <TableCell className="text-muted-foreground text-sm">{contact.propertyAddress}</TableCell>
                         )}
+                        {visibleColumns.propertyCity && (
+                          <TableCell className="text-muted-foreground text-sm">{contact.propertyCity}</TableCell>
+                        )}
+                        {visibleColumns.propertyState && (
+                          <TableCell className="text-muted-foreground text-sm">{contact.propertyState}</TableCell>
+                        )}
+                        {visibleColumns.propertyZip && (
+                          <TableCell className="text-muted-foreground text-sm">{contact.propertyZip}</TableCell>
+                        )}
                         {visibleColumns.mailingAddress && (
                           <TableCell className="text-muted-foreground text-sm">{contact.mailingAddress}</TableCell>
+                        )}
+                        {visibleColumns.mailingCity && (
+                          <TableCell className="text-muted-foreground text-sm">{contact.mailingCity}</TableCell>
+                        )}
+                        {visibleColumns.mailingState && (
+                          <TableCell className="text-muted-foreground text-sm">{contact.mailingState}</TableCell>
+                        )}
+                        {visibleColumns.mailingZip && (
+                          <TableCell className="text-muted-foreground text-sm">{contact.mailingZip}</TableCell>
                         )}
                         {visibleColumns.status && (
                           <TableCell className="relative">
@@ -890,7 +961,7 @@ export default function ContactsPage() {
                               variant="ghost" 
                               size="icon" 
                               className="h-8 w-8 text-muted-foreground hover:text-primary"
-                              onClick={() => console.log('Open message for', contact.name)}
+                              onClick={() => console.log('Open message for', `${contact.firstName} ${contact.lastName}`)}
                             >
                               <MessageSquare className="h-4 w-4" />
                             </Button>
@@ -898,7 +969,7 @@ export default function ContactsPage() {
                               variant="ghost" 
                               size="icon" 
                               className="h-8 w-8 text-muted-foreground hover:text-primary"
-                              onClick={() => console.log('Edit contact', contact.name)}
+                              onClick={() => console.log('Edit contact', `${contact.firstName} ${contact.lastName}`)}
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
@@ -909,8 +980,8 @@ export default function ContactsPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="bg-popover border-border">
-                                <DropdownMenuItem onClick={() => console.log('View details for', contact.name)}>View Details</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => console.log('Add to campaign for', contact.name)}>Add to Campaign</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => console.log('View details for', `${contact.firstName} ${contact.lastName}`)}>View Details</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => console.log('Add to campaign for', `${contact.firstName} ${contact.lastName}`)}>Add to Campaign</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-red-400" onClick={() => {
                                   const updated = contacts.filter(c => c.id !== contact.id);
