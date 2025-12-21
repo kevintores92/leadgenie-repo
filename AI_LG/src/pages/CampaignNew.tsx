@@ -10,7 +10,7 @@ import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet } from "luc
 import * as api from "@/lib/api";
 
 // Pricing constants
-const SMS_COST = 0.02; // $0.02 per SMS
+const SMS_COST = 0.02; // $0.02 per SMS (includes AI Classification + AI Replies)
 const TWILIO_VOICE_COST_PER_MIN = 0.014; // $0.014 per minute
 const AI_VOICE_COST_PER_MIN = 0.06; // Vapi AI cost per minute
 const AVG_CALL_DURATION_MIN = 2; // Average 2 minute call
@@ -308,7 +308,9 @@ export default function CampaignNew() {
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-3">
-                    {campaignType === "SMS" ? `@ $${SMS_COST} per SMS` : `@ $${((TWILIO_VOICE_COST_PER_MIN + AI_VOICE_COST_PER_MIN) * 2 * AVG_CALL_DURATION_MIN).toFixed(3)} per call (${AVG_CALL_DURATION_MIN} min avg)`}
+                    {campaignType === "SMS" 
+                      ? `@ $${SMS_COST} per SMS (includes AI Classification + AI Replies)` 
+                      : `@ $${((TWILIO_VOICE_COST_PER_MIN + AI_VOICE_COST_PER_MIN) * 2 * AVG_CALL_DURATION_MIN).toFixed(3)} per call (${AVG_CALL_DURATION_MIN} min avg)`}
                   </div>
                 </div>
 

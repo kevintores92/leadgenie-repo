@@ -74,8 +74,7 @@ export default function BusinessInfo() {
     setLoading(true);
     
     try {
-      // TODO: Create backend endpoint for business info
-      // await api.updateBusinessInfo(formData);
+      await api.updateBusinessInfo(formData);
       navigate("/upload");
     } catch (err: any) {
       setError(err.message || "Failed to save business information");

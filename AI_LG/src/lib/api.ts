@@ -179,3 +179,30 @@ export async function topupWallet(amount: number) {
     body: JSON.stringify({ amount }),
   });
 }
+
+// Organization / Business Info
+export async function updateBusinessInfo(data: {
+  legalName: string;
+  dbaName?: string;
+  businessType: string;
+  ein?: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  country?: string;
+  website?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  description?: string;
+}) {
+  return apiRequest('/organization/business-info', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getBusinessInfo() {
+  return apiRequest('/organization/business-info');
+}
