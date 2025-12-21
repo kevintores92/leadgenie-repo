@@ -1,98 +1,172 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { PageShell } from "@/components/app/PageShell";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
+import * as api from "@/lib/api";
 
-export default function SignupPage() {
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
-
-  const [loading, setLoading] = useState(false);
+export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [, navigate] = useLocation();
 
-  const isValid = useMemo(() => {
-    if (!email.trim()) return false;
-    if (!password.trim()) return false;
-    return true;
-  }, [email, password]);
-
-  const handleContinue = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValid) return;
+    setError("");
+    
+    if (password !== confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
 
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    
     setLoading(true);
+    
     try {
-      // Placeholder: backend should create Twilio subaccount + free trial number.
-      // For now, persist a minimal session marker so we can treat the user as “signed in”.
-      localStorage.setItem(
-        "ai_leadgenie_session",
-        JSON.stringify({ email: email.trim(), createdAt: Date.now() })
-      );
-
-      toast({
-        title: "Success",
-        description: "Account created. Let’s set up compliance + upload your list.",
-      });
-
-      setLocation("/setup?step=1");
+      await api.signup(email, password, businessName);
+      navigate("/business-info");
     } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err?.message || "Signup failed",
-        variant: "destructive",
-      });
+      setError(err.message || "Signup failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <PageShell>
-      <div className="mx-auto max-w-md">
-        <Card className="bg-white/5 border-white/10">
-          <CardHeader>
-            <CardTitle>Create your account</CardTitle>
-            <CardDescription>
-              This is the automated Lead Genie experience.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={handleContinue}>
+    <AppLayout>
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+        >
+          <div className="glass-card p-8 rounded-2xl">
+            {/* Icon */}
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-600/20 border border-primary/30 flex items-center justify-center">
+                <Shield className="w-8 h-8 text-primary" />
+              </div>
+            </div>
+
+            <h1 className="text-3xl font-bold text-center mb-2">Create Account</h1>
+            <p className="text-center text-muted-foreground mb-8">
+              Start your autonomous lead generation journey
+            </p>
+
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="businessName" className="text-sm font-medium">
+                  Business Name
+                </Label>
+                <Input
+                  id="businessName"
+                  data-testid="input-businessname"
+                  type="text"
+                  placeholder="Your Company LLC"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  required
+                  className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">
+                  Email Address
+                </Label>
                 <Input
                   id="email"
+                  data-testid="input-email"
                   type="email"
                   placeholder="you@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    data-testid="input-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="glass-card border-white/10 focus:border-primary focus:bg-white/5 pr-10"
+                  />
+                  <button
+                    type="button"
+                    data-testid="button-toggle-password"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password" className="text-sm font-medium">
+                  Confirm Password
+                </Label>
                 <Input
-                  id="password"
+                  id="confirm-password"
+                  data-testid="input-confirm-password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
                 />
               </div>
 
-              <Button className="w-full" type="submit" disabled={loading || !isValid}>
-                {loading ? "Creating..." : "Continue"}
+              <Button
+                data-testid="button-signup"
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold mt-6"
+              >
+                {loading ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
-          </CardContent>
-        </Card>
+
+            <p className="text-center text-xs text-muted-foreground mt-6">
+              By signing up, you agree to our Terms of Service
+            </p>
+          </div>
+        </motion.div>
       </div>
-    </PageShell>
+    </AppLayout>
   );
 }

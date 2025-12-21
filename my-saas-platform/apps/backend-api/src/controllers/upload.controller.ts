@@ -59,6 +59,17 @@ export async function uploadPhoneScrub(req: Request, res: Response) {
       });
     }
 
+    // Optional: mapping + brandId (multipart fields)
+    let mapping: Record<string, string> | null = null;
+    if ((req as any).body?.mapping) {
+      try {
+        mapping = JSON.parse((req as any).body.mapping);
+      } catch {
+        return res.status(400).json({ error: 'Invalid mapping JSON' });
+      }
+    }
+    const brandId = (req as any).body?.brandId ? String((req as any).body.brandId) : null;
+
     // Create upload job record
     const jobId = uuidv4();
     const uploadJob = await prisma.uploadJob.create({
@@ -82,6 +93,9 @@ export async function uploadPhoneScrub(req: Request, res: Response) {
         orgId,
         filePath: req.file.path,
         filename: req.file.originalname,
+        mapping,
+        brandId,
+        storeUnmappedCustomFields: true,
       },
       {
         attempts: 3,

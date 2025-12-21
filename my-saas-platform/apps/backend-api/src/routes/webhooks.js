@@ -3,8 +3,36 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { webhookLogger, globalRateLimiter } = require('../middleware/webhookSecurity');
+const { Queue } = require('bullmq');
+const { normalizePhone } = require('../utils/normalizePhone');
 
 const suffix = process.env.WEBHOOK_SUFFIX || 'default';
+
+function parseRedisConnection() {
+  if (process.env.REDIS_URL) {
+    try {
+      const u = new URL(process.env.REDIS_URL);
+      const isTLS = u.protocol === 'rediss:' || u.protocol === 'rediss:';
+      return {
+        host: u.hostname,
+        port: Number(u.port) || (isTLS ? 6380 : 6379),
+        password: u.password || process.env.REDIS_PASSWORD,
+        tls: isTLS ? {} : undefined,
+      };
+    } catch (e) {
+      console.warn('Invalid REDIS_URL, falling back to parts', e && e.message);
+    }
+  }
+
+  return {
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: Number(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD || undefined,
+    tls: process.env.REDIS_TLS === 'true' ? {} : undefined,
+  };
+}
+
+const inboundQueue = new Queue('inbound-process', { connection: parseRedisConnection() });
 
 router.use(webhookLogger);
 router.use(globalRateLimiter);
@@ -13,13 +41,18 @@ router.post(`/twilio/inbound-${suffix}`, async (req, res) => {
   const { To, From, Body } = req.body || {};
   if (!To || !From) return res.status(400).send('missing fields');
 
+  // Twilio generally sends E.164 already, but normalize defensively so we don't
+  // create duplicates from formatting differences.
+  const toE164 = normalizePhone(String(To), 'US') || String(To);
+  const fromE164 = normalizePhone(String(From), 'US') || String(From);
+
   // find sending number: prefer PhoneNumber pool, fallback to legacy SendingNumber
-  let sending = await prisma.phoneNumber.findUnique({ where: { phoneNumber: To } });
+  let sending = await prisma.phoneNumber.findUnique({ where: { phoneNumber: toE164 } });
   let orgId;
   if (sending) {
     orgId = sending.organizationId;
   } else {
-    const legacy = await prisma.sendingNumber.findUnique({ where: { phoneNumber: To } });
+    const legacy = await prisma.sendingNumber.findUnique({ where: { phoneNumber: toE164 } });
     if (!legacy) return res.status(404).send('unknown to number');
     orgId = legacy.organizationId;
   }
@@ -32,24 +65,35 @@ router.post(`/twilio/inbound-${suffix}`, async (req, res) => {
   }
 
   const contact = await prisma.contact.upsert({
-    where: { organizationId_phoneNumber: { organizationId: orgId, phoneNumber: From } },
-    update: { phone: From },
-    create: { firstName: '', phone: From, phoneNumber: From, organizationId: orgId, brandId: brand.id },
+    where: { brandId_phone: { brandId: brand.id, phone: fromE164 } },
+    update: { phone: fromE164, organizationId: orgId },
+    create: { firstName: '', phone: fromE164, organizationId: orgId, brandId: brand.id },
   });
 
   // create inbound message
-  await prisma.message.create({
+  const inbound = await prisma.message.create({
     data: {
       brandId: contact.brandId,
       contactId: contact.id,
       direction: 'INBOUND',
       status: 'DELIVERED',
       channel: 'SMS',
-      fromNumber: From,
-      toNumber: To,
+      fromNumber: fromE164,
+      toNumber: toE164,
       body: Body || '',
     },
   });
+
+  // Kick off async AI processing (classification + auto-reply + warm-caller triggers)
+  try {
+    await inboundQueue.add(
+      'process-inbound',
+      { messageId: inbound.id, organizationId: orgId, autoReply: true },
+      { attempts: 3, backoff: { type: 'exponential', delay: 1000 } }
+    );
+  } catch (e) {
+    console.warn('Failed to enqueue inbound AI job', e && e.message);
+  }
 
   // mark contact as replied
   try {

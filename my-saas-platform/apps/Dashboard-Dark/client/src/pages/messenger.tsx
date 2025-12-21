@@ -12,19 +12,42 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import MainLayout from "@/components/layout/MainLayout";
+import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function MessengerPage() {
   const [threads, setThreads] = useState([]);
   const [selectedThread, setSelectedThread] = useState(null);
   const [messageInput, setMessageInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const [contactDraft, setContactDraft] = useState<any>(null);
 
   // Fetch contacts and convert to threads
   useEffect(() => {
     const fetchThreads = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/contacts');
+        if (!token && !user?.orgId) {
+          toast({
+            title: 'Not signed in',
+            description: 'Please log in to view contacts.',
+            variant: 'destructive',
+          });
+          setThreads([]);
+          setSelectedThread(null);
+          return;
+        }
+
+        const response = await fetch('/api/contacts', {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(user?.orgId ? { 'x-organization-id': user.orgId } : {}),
+            ...(user?.id ? { 'x-user-id': user.id } : {}),
+          },
+        });
         if (!response.ok) throw new Error('Failed to fetch contacts');
         const data = await response.json();
         
@@ -38,9 +61,10 @@ export default function MessengerPage() {
           unread: 0,
           status: 'warm',
           online: Math.random() > 0.5,
-          email: contact.email || '',
+          email: '',
           phone: contact.phone || '',
           location: contact.propertyCity || 'Unknown',
+          contact,
         }));
         
         setThreads(mappedThreads);
@@ -56,7 +80,94 @@ export default function MessengerPage() {
     };
 
     fetchThreads();
-  }, []);
+  }, [token]);
+
+  useEffect(() => {
+    if (!selectedThread?.contact) {
+      setContactDraft(null);
+      return;
+    }
+    const c = selectedThread.contact;
+    setContactDraft({
+      firstName: c.firstName || '',
+      lastName: c.lastName || '',
+      phone: c.phone || '',
+      propertyAddress: c.propertyAddress || '',
+      mailingAddress: c.mailingAddress || '',
+      status: c.status || '',
+      tags: Array.isArray(c.tags) ? c.tags.join(', ') : '',
+    });
+  }, [selectedThread?.id]);
+
+  const saveContact = async () => {
+    if (!selectedThread?.id || !contactDraft) return;
+    if (!token && !user?.orgId) {
+      toast({
+        title: 'Not signed in',
+        description: 'Please log in to edit contacts.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      const payload: any = {
+        firstName: contactDraft.firstName,
+        lastName: contactDraft.lastName,
+        phone: contactDraft.phone,
+        propertyAddress: contactDraft.propertyAddress,
+        mailingAddress: contactDraft.mailingAddress,
+        status: contactDraft.status,
+        tags: typeof contactDraft.tags === 'string'
+          ? contactDraft.tags.split(/[,;|]/).map((t: string) => t.trim()).filter(Boolean)
+          : undefined,
+      };
+
+      const response = await fetch(`/api/contacts/${selectedThread.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(user?.orgId ? { 'x-organization-id': user.orgId } : {}),
+          ...(user?.id ? { 'x-user-id': user.id } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast({
+          title: 'Save failed',
+          description: data?.error || 'Unable to save contact.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({ title: 'Saved', description: 'Contact updated successfully.' });
+
+      // Update thread display
+      setThreads((prev: any[]) =>
+        prev.map((t) =>
+          t.id === selectedThread.id
+            ? {
+                ...t,
+                phone: data.phone || payload.phone,
+                name: `${data.firstName || payload.firstName || ''} ${data.lastName || payload.lastName || ''}`.trim() || t.name,
+                avatar: `${(data.firstName || payload.firstName || 'C').charAt(0)}${(data.lastName || payload.lastName || 'C').charAt(0)}`,
+                contact: { ...(t.contact || {}), ...data },
+              }
+            : t
+        )
+      );
+      setSelectedThread((prev: any) => (prev ? { ...prev, contact: { ...(prev.contact || {}), ...data } } : prev));
+    } catch (e: any) {
+      toast({
+        title: 'Save failed',
+        description: e?.message || 'Unexpected error.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   if (isLoading) {
     return <MainLayout title="Inbox"><div className="flex items-center justify-center h-full text-muted-foreground">Loading contacts...</div></MainLayout>;
@@ -285,25 +396,66 @@ export default function MessengerPage() {
                 <div className="group flex items-start gap-3 text-sm">
                   <Phone className="h-4 w-4 text-muted-foreground mt-0.5 group-hover:text-primary transition-colors" />
                   <div className="flex-1">
-                    <p className="font-medium">+1 (555) 123-4567</p>
-                    <p className="text-xs text-muted-foreground">Mobile</p>
+                    <Input
+                      value={contactDraft?.phone || ''}
+                      onChange={(e) => setContactDraft((d: any) => ({ ...d, phone: e.target.value }))}
+                      placeholder="Phone"
+                      className="h-8 bg-secondary/30 border-border/50"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Saved as E.164 (server-normalized)</p>
                   </div>
                 </div>
                 
                 <div className="group flex items-start gap-3 text-sm">
                   <User className="h-4 w-4 text-muted-foreground mt-0.5 group-hover:text-primary transition-colors" />
                   <div className="flex-1">
-                    <p className="font-medium">michael.scott@dunder.com</p>
-                    <p className="text-xs text-muted-foreground">Email</p>
+                    <Input
+                      value={contactDraft?.firstName || ''}
+                      onChange={(e) => setContactDraft((d: any) => ({ ...d, firstName: e.target.value }))}
+                      placeholder="First name"
+                      className="h-8 bg-secondary/30 border-border/50"
+                    />
+                    <Input
+                      value={contactDraft?.lastName || ''}
+                      onChange={(e) => setContactDraft((d: any) => ({ ...d, lastName: e.target.value }))}
+                      placeholder="Last name"
+                      className="h-8 bg-secondary/30 border-border/50 mt-2"
+                    />
                   </div>
                 </div>
                 
                 <div className="group flex items-start gap-3 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground mt-0.5 group-hover:text-primary transition-colors" />
                   <div className="flex-1">
-                    <p className="font-medium">10:42 AM (Local)</p>
-                    <p className="text-xs text-muted-foreground">Scranton, PA</p>
+                    <Input
+                      value={contactDraft?.propertyAddress || ''}
+                      onChange={(e) => setContactDraft((d: any) => ({ ...d, propertyAddress: e.target.value }))}
+                      placeholder="Property address"
+                      className="h-8 bg-secondary/30 border-border/50"
+                    />
+                    <Input
+                      value={contactDraft?.mailingAddress || ''}
+                      onChange={(e) => setContactDraft((d: any) => ({ ...d, mailingAddress: e.target.value }))}
+                      placeholder="Mailing address"
+                      className="h-8 bg-secondary/30 border-border/50 mt-2"
+                    />
                   </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <Input
+                    value={contactDraft?.status || ''}
+                    onChange={(e) => setContactDraft((d: any) => ({ ...d, status: e.target.value }))}
+                    placeholder="Status (Hot/Warm/Nurture/Drip/etc.)"
+                    className="h-8 bg-secondary/30 border-border/50"
+                  />
+                  <Input
+                    value={contactDraft?.tags || ''}
+                    onChange={(e) => setContactDraft((d: any) => ({ ...d, tags: e.target.value }))}
+                    placeholder="Tags (comma-separated)"
+                    className="h-8 bg-secondary/30 border-border/50"
+                  />
+                  <Button onClick={saveContact} className="w-full h-9">Save</Button>
                 </div>
               </div>
             </div>

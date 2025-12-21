@@ -6,6 +6,7 @@ import { normalizePhone } from '../utils/normalizePhone';
 import { parseUploadFile } from '../utils/parseFile';
 import { createLandlineZip, LandlineRow } from '../utils/createLandlineZip';
 import { getPhoneCheckService } from '../services/phoneCheck.service';
+import { normalizeAddress } from '../utils/normalizeAddress';
 
 const prisma = new PrismaClient();
 const phoneCheckService = getPhoneCheckService();
@@ -15,7 +16,16 @@ const phoneCheckService = getPhoneCheckService();
  * Validates phone numbers, splits into mobile/landline, generates ZIP
  */
 export async function phoneScrubWorker(job: Job) {
-  const { jobId, userId, orgId, filePath, filename } = job.data;
+  const {
+    jobId,
+    userId,
+    orgId,
+    filePath,
+    filename,
+    mapping,
+    brandId: requestedBrandId,
+    storeUnmappedCustomFields,
+  } = job.data;
 
   console.log(`[${jobId}] Starting phone scrub job for ${filename}`);
 
@@ -108,7 +118,11 @@ export async function phoneScrubWorker(job: Job) {
     // Insert mobile contacts into database
     if (mobiles.length > 0) {
       console.log(`[${jobId}] Inserting ${mobiles.length} mobile contacts...`);
-      await insertMobileContacts(orgId, mobiles);
+      await insertMobileContacts(orgId, mobiles, {
+        brandId: requestedBrandId || null,
+        mapping: mapping || null,
+        storeUnmappedCustomFields: storeUnmappedCustomFields !== false,
+      });
     }
 
     // Create ZIP with landlines
@@ -178,42 +192,216 @@ export async function phoneScrubWorker(job: Job) {
  */
 async function insertMobileContacts(
   organizationId: string,
-  mobileRecords: any[]
+  mobileRecords: any[],
+  opts: {
+    brandId: string | null;
+    mapping: Record<string, string> | null;
+    storeUnmappedCustomFields: boolean;
+  }
 ): Promise<void> {
+  const brandId = await resolveBrandId(organizationId, opts.brandId);
+
   // Batch insert to avoid overwhelming database
   const batchSize = 1000;
+
+  const mappingObj = opts.mapping;
+  const supportedTargets = new Set([
+    'firstName',
+    'lastName',
+    'phone',
+    'propertyAddress',
+    'propertyCity',
+    'propertyState',
+    'propertyZip',
+    'mailingAddress',
+    'mailingCity',
+    'mailingState',
+    'mailingZip',
+    'status',
+    'tags',
+  ]);
+
+  function pickMappedValue(originalRecord: any, target: string): any {
+    if (!mappingObj || !originalRecord) return undefined;
+    const headers = Object.keys(mappingObj).filter((h) => mappingObj[h] === target);
+    for (const header of headers) {
+      const v = originalRecord[header];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+    }
+    return undefined;
+  }
+
+  function buildCustomFields(originalRecord: any): Record<string, any> {
+    if (!opts.storeUnmappedCustomFields || !originalRecord || typeof originalRecord !== 'object') return {};
+    const out: Record<string, any> = {};
+    const headers = Object.keys(originalRecord);
+    for (const header of headers) {
+      const name = String(header).trim();
+      if (!name) continue;
+      if (mappingObj && supportedTargets.has(mappingObj[header] || '')) continue;
+      const value = originalRecord[header];
+      if (value === undefined || value === null) continue;
+      const asString = typeof value === 'string' ? value.trim() : value;
+      if (asString === '') continue;
+      out[name] = asString;
+    }
+    return out;
+  }
 
   for (let i = 0; i < mobileRecords.length; i += batchSize) {
     const batch = mobileRecords.slice(i, i + batchSize);
 
-    // Create contacts
-    const contactsData = batch.map((record) => ({
-      organizationId,
-      brandId: '', // Will be set by frontend or use org default
-      firstName: record.firstName || 'Import',
-      lastName: record.lastName || '',
-      phone: record.phone,
-      phoneType: record.phone_type,
-      carrier: record.carrier,
-      country: record.country,
-      isPhoneValid: true,
-      // Include any other fields from the original CSV
-      ...(record.propertyAddress && { propertyAddress: record.propertyAddress }),
-      ...(record.propertyCity && { propertyCity: record.propertyCity }),
-      ...(record.propertyState && { propertyState: record.propertyState }),
-      ...(record.propertyZip && { propertyZip: record.propertyZip }),
-      ...(record.mailingAddress && { mailingAddress: record.mailingAddress }),
-      ...(record.mailingCity && { mailingCity: record.mailingCity }),
-      ...(record.mailingState && { mailingState: record.mailingState }),
-      ...(record.mailingZip && { mailingZip: record.mailingZip }),
-    }));
+    const contactsData = batch.map((record) => {
+      const original = record.originalRecord || record;
+      const mappedFirstName = pickMappedValue(original, 'firstName');
+      const mappedLastName = pickMappedValue(original, 'lastName');
+      const mappedStatus = pickMappedValue(original, 'status');
+      const mappedTags = pickMappedValue(original, 'tags');
 
-    // Use createMany with skipDuplicates to handle phone uniqueness
-    await prisma.contact.createMany({
-      data: contactsData,
-      skipDuplicates: true,
+      const propertyAddress = pickMappedValue(original, 'propertyAddress') ?? record.propertyAddress;
+      const mailingAddress = pickMappedValue(original, 'mailingAddress') ?? record.mailingAddress;
+
+      const maybeTags =
+        typeof mappedTags === 'string'
+          ? mappedTags
+              .split(/[,;|]/)
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : Array.isArray(mappedTags)
+            ? mappedTags
+            : undefined;
+
+      return {
+        organizationId,
+        brandId,
+        firstName: String(record.firstName ?? mappedFirstName ?? 'Import'),
+        lastName: String(record.lastName ?? mappedLastName ?? ''),
+        phone: record.phone,
+        phoneType: record.phone_type,
+        carrier: record.carrier,
+        country: record.country,
+        isPhoneValid: true,
+        ...(mappedStatus ? { status: String(mappedStatus) } : {}),
+        ...(maybeTags ? { tags: maybeTags } : {}),
+        ...(propertyAddress ? { propertyAddress: normalizeAddress(String(propertyAddress)) } : {}),
+        ...(pickMappedValue(original, 'propertyCity') ?? record.propertyCity
+          ? { propertyCity: String(pickMappedValue(original, 'propertyCity') ?? record.propertyCity) }
+          : {}),
+        ...(pickMappedValue(original, 'propertyState') ?? record.propertyState
+          ? { propertyState: String(pickMappedValue(original, 'propertyState') ?? record.propertyState) }
+          : {}),
+        ...(pickMappedValue(original, 'propertyZip') ?? record.propertyZip
+          ? { propertyZip: String(pickMappedValue(original, 'propertyZip') ?? record.propertyZip) }
+          : {}),
+        ...(mailingAddress ? { mailingAddress: normalizeAddress(String(mailingAddress)) } : {}),
+        ...(pickMappedValue(original, 'mailingCity') ?? record.mailingCity
+          ? { mailingCity: String(pickMappedValue(original, 'mailingCity') ?? record.mailingCity) }
+          : {}),
+        ...(pickMappedValue(original, 'mailingState') ?? record.mailingState
+          ? { mailingState: String(pickMappedValue(original, 'mailingState') ?? record.mailingState) }
+          : {}),
+        ...(pickMappedValue(original, 'mailingZip') ?? record.mailingZip
+          ? { mailingZip: String(pickMappedValue(original, 'mailingZip') ?? record.mailingZip) }
+          : {}),
+      };
     });
+
+    await prisma.contact.createMany({ data: contactsData, skipDuplicates: true });
+
+    // Store unmapped columns as custom fields
+    if (opts.storeUnmappedCustomFields) {
+      const phones = contactsData.map((c) => c.phone).filter(Boolean);
+      const contacts = await prisma.contact.findMany({
+        where: { brandId, phone: { in: phones } },
+        select: { id: true, phone: true },
+      });
+      const contactIdByPhone = new Map(contacts.map((c) => [c.phone, c.id]));
+
+      const perRecordCustomFields = batch.map((record) => ({
+        phone: record.phone,
+        customFields: buildCustomFields(record.originalRecord),
+      }));
+
+      const allFieldNames = Array.from(
+        new Set(
+          perRecordCustomFields
+            .flatMap((r) => Object.keys(r.customFields || {}))
+            .map((n) => String(n).trim())
+            .filter(Boolean)
+        )
+      ).slice(0, 500);
+
+      if (allFieldNames.length > 0) {
+        const existingDefs = await prisma.customFieldDefinition.findMany({
+          where: { brandId, name: { in: allFieldNames } },
+        });
+        const defByName = new Map(existingDefs.map((d) => [d.name, d]));
+        for (const name of allFieldNames) {
+          if (!defByName.has(name)) {
+            const created = await prisma.customFieldDefinition.create({
+              data: { brandId, name, type: 'STRING' },
+            });
+            defByName.set(name, created);
+          }
+        }
+
+        const defs = Array.from(defByName.values());
+        const defIdByName = new Map(defs.map((d) => [d.name, d.id]));
+        const defIds = defs.map((d) => d.id);
+        const contactIds = Array.from(
+          new Set(
+            perRecordCustomFields
+              .map((r) => contactIdByPhone.get(r.phone))
+              .filter(Boolean) as string[]
+          )
+        );
+
+        if (contactIds.length > 0) {
+          await prisma.contactCustomField.deleteMany({
+            where: {
+              contactId: { in: contactIds },
+              fieldDefinitionId: { in: defIds },
+            },
+          });
+
+          const valuesToInsert: { contactId: string; fieldDefinitionId: string; value: any }[] = [];
+          for (const record of perRecordCustomFields) {
+            const contactId = contactIdByPhone.get(record.phone);
+            if (!contactId) continue;
+            const cf = record.customFields || {};
+            for (const [name, value] of Object.entries(cf)) {
+              const defId = defIdByName.get(name);
+              if (!defId) continue;
+              valuesToInsert.push({ contactId, fieldDefinitionId: defId, value });
+            }
+          }
+
+          // Keep batches reasonable
+          const cfBatchSize = 2000;
+          for (let j = 0; j < valuesToInsert.length; j += cfBatchSize) {
+            await prisma.contactCustomField.createMany({
+              data: valuesToInsert.slice(j, j + cfBatchSize),
+            });
+          }
+        }
+      }
+    }
   }
+}
+
+async function resolveBrandId(organizationId: string, preferredBrandId: string | null): Promise<string> {
+  if (preferredBrandId) {
+    const brand = await prisma.brand.findUnique({ where: { id: preferredBrandId } });
+    if (brand && brand.orgId === organizationId) return preferredBrandId;
+  }
+
+  const brand = await prisma.brand.findFirst({
+    where: { orgId: organizationId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+  if (!brand) throw new Error('No brand found for organization; cannot import contacts');
+  return brand.id;
 }
 
 /**
