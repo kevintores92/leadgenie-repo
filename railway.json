@@ -39,7 +39,12 @@
         "FAKE_TWILIO": "0",
         "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
         "REDIS_URL": "${{ secrets.REDIS_URL }}",
-        "TEMPLATES_CSV": "../../Temporary_Templates.csv"
+        "TEMPLATES_CSV": "../../Temporary_Templates.csv",
+        "LLM_API_KEY": "${{ secrets.LLM_API_KEY }}",
+        "LLM_MODEL": "gpt-4o-mini",
+        "LLM_REPLY_MODEL": "gpt-4o-mini",
+        "VAPI_API_KEY": "${{ secrets.VAPI_API_KEY }}",
+        "VAPI_PHONE_NUMBER_ID": "${{ secrets.VAPI_PHONE_NUMBER_ID }}"
       }
     },
     "frontend": {

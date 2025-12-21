@@ -12,6 +12,7 @@ const adminRouter = require('./routes/admin');
 const aiRouter = require('./routes/ai');
 const paypalWebhookRouter = require('./routes/paypal-webhook');
 const uploadRouter = require('../routes/upload');
+const voiceRouter = require('./routes/voice');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/marketplace', marketplaceRouter);
 app.use('/admin', adminRouter);
 app.use('/ai', aiRouter);
 app.use('/upload', uploadRouter);
+app.use('/webhooks', voiceRouter); // Vapi voice webhooks
 app.use('/', paypalWebhookRouter);
 
 app.get('/', (req, res) => res.json({ ok: true }));
