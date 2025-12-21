@@ -51,7 +51,7 @@
       "source": {
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
-      "rootDirectory": "LeadGenieEngine",
+      "rootDirectory": "AI_LG
       "buildCommand": "npm ci && npm run build",
       "startCommand": "npm run start",
       "variables": {
