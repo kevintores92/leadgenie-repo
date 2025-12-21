@@ -10,12 +10,18 @@ import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet } from "luc
 import * as api from "@/lib/api";
 
 // Pricing constants
-const SMS_COST = 0.02; // $0.02 per SMS (includes AI Classification + AI Replies)
-const TWILIO_VOICE_COST_PER_MIN = 0.014; // $0.014 per minute
-const AI_VOICE_COST_PER_MIN = 0.06; // Vapi AI cost per minute
+const SMS_COST = 0.02; // $0.02 per SMS (includes AI Classification + AI Replies + Carrier Fees)
+const TWILIO_VOICE_COST_PER_MIN = 0.01; // Hidden Twilio cost per minute
+const AI_VOICE_INBOUND_COST_PER_MIN = 0.06; // Vapi AI inbound cost per minute
+const AI_VOICE_OUTBOUND_COST_PER_MIN = 0.06; // Vapi AI outbound cost per minute
 const AVG_CALL_DURATION_MIN = 2; // Average 2 minute call
 const DLC_BRAND_REGISTRATION = 4.00; // One-time $4
 const DLC_CAMPAIGN_REGISTRATION = 15.00; // One-time $15
+const PHONE_NUMBER_COST = 1.15; // $1.15 per phone number per month
+const PHONE_VERIFICATION_COST = 0.05; // $0.05 per number verification
+const CONTACTS_PER_NUMBER = 250; // Rotation: 1 number per 250 contacts
+const ESTIMATED_HOT_LEAD_RATE = 0.15; // 15% conversion to hot leads
+const ESTIMATED_REPLY_RATE = 0.35; // 35% reply rate
 
 export default function CampaignNew() {
   const [campaignName, setCampaignName] = useState("");
@@ -46,20 +52,39 @@ export default function CampaignNew() {
   const calculateEstimatedCost = () => {
     let costPerContact = 0;
     
+    // Calculate cost per contact based on campaign type
     if (campaignType === "SMS") {
       costPerContact = SMS_COST;
     } else {
-      // Voice: (Twilio + AI) * 2 markup * avg duration
-      costPerContact = (TWILIO_VOICE_COST_PER_MIN + AI_VOICE_COST_PER_MIN) * 2 * AVG_CALL_DURATION_MIN;
+      // Voice: AI inbound/outbound + hidden Twilio costs
+      const avgAiCost = (AI_VOICE_INBOUND_COST_PER_MIN + AI_VOICE_OUTBOUND_COST_PER_MIN) / 2;
+      costPerContact = (avgAiCost + TWILIO_VOICE_COST_PER_MIN) * AVG_CALL_DURATION_MIN;
     }
     
+    // Calculate number of phone numbers needed for rotation
+    const numbersNeeded = Math.ceil(phoneNumbers / CONTACTS_PER_NUMBER);
+    
+    // Calculate all costs
     const messagingCost = phoneNumbers * costPerContact;
+    const phoneNumbersCost = numbersNeeded * PHONE_NUMBER_COST;
+    const verificationCost = numbersNeeded * PHONE_VERIFICATION_COST;
     const dlcFees = DLC_BRAND_REGISTRATION + DLC_CAMPAIGN_REGISTRATION;
+    
+    // Calculate projected leads
+    const projectedReplies = Math.round(phoneNumbers * ESTIMATED_REPLY_RATE);
+    const projectedHotLeads = Math.round(phoneNumbers * ESTIMATED_HOT_LEAD_RATE);
+    
+    const totalCost = messagingCost + phoneNumbersCost + verificationCost + dlcFees;
     
     return {
       messagingCost: messagingCost.toFixed(2),
+      phoneNumbersCost: phoneNumbersCost.toFixed(2),
+      verificationCost: verificationCost.toFixed(2),
       dlcFees: dlcFees.toFixed(2),
-      total: (messagingCost + dlcFees).toFixed(2)
+      total: totalCost.toFixed(2),
+      numbersNeeded,
+      projectedReplies,
+      projectedHotLeads
     };
   };
 
@@ -294,23 +319,79 @@ export default function CampaignNew() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {campaignType === "SMS" ? "SMS Messages" : "Voice Calls"}
+                        {campaignType === "SMS" ? "SMS Messages" : "AI Voice Calls"}
                       </span>
                       <span className="font-medium">${costs.messagingCost}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">10DLC Fees</span>
+                      <span className="text-muted-foreground">Phone Numbers ({costs.numbersNeeded}x)</span>
+                      <span className="font-medium">${costs.phoneNumbersCost}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Number Verification</span>
+                      <span className="font-medium">${costs.verificationCost}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">10DLC Registration</span>
                       <span className="font-medium">${costs.dlcFees}</span>
                     </div>
                     <div className="border-t border-white/10 pt-2 flex justify-between">
-                      <span className="font-semibold">Total Cost</span>
+                      <span className="font-semibold">Total Required</span>
                       <span className="text-2xl font-bold text-green-400">${costs.total}</span>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-3">
+                  <div className="text-xs text-muted-foreground mt-3 space-y-1">
                     {campaignType === "SMS" 
-                      ? `@ $${SMS_COST} per SMS (includes AI Classification + AI Replies)` 
-                      : `@ $${((TWILIO_VOICE_COST_PER_MIN + AI_VOICE_COST_PER_MIN) * 2 * AVG_CALL_DURATION_MIN).toFixed(3)} per call (${AVG_CALL_DURATION_MIN} min avg)`}
+                      ? <div>@ ${SMS_COST} per SMS (includes AI Classification + AI Replies + Carrier Fees)</div>
+                      : <div>@ ${((AI_VOICE_INBOUND_COST_PER_MIN + AI_VOICE_OUTBOUND_COST_PER_MIN) / 2 * AVG_CALL_DURATION_MIN).toFixed(3)} per call (AI Inbound + AI Outbound, {AVG_CALL_DURATION_MIN} min avg)</div>
+                    }
+                    <div className="text-amber-400">💡 Rotating {costs.numbersNeeded} numbers (1 per {CONTACTS_PER_NUMBER} contacts)</div>
+                  </div>
+                </div>
+
+                {/* Projected Results */}
+                <div className="border-b border-white/5 pb-4">
+                  <div className="text-sm text-muted-foreground mb-3">Projected Results</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Expected Replies</span>
+                      <span className="font-medium text-blue-400">{costs.projectedReplies.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Projected Hot Leads</span>
+                      <span className="font-medium text-green-400">{costs.projectedHotLeads.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Based on industry averages: {(ESTIMATED_REPLY_RATE * 100).toFixed(0)}% reply rate, {(ESTIMATED_HOT_LEAD_RATE * 100).toFixed(0)}% hot leads
+                  </div>
+                </div>
+
+                {/* Auto Wallet Reload Suggestion */}
+                {parseFloat(costs.total) > walletBalance && (
+                  <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">⚠️</div>
+                      <div>
+                        <div className="font-semibold text-amber-400 mb-1">Insufficient Balance</div>
+                        <div className="text-sm text-muted-foreground mb-3">
+                          You need ${(parseFloat(costs.total) - walletBalance).toFixed(2)} more to fund this campaign.
+                        </div>
+                        <div className="text-xs text-amber-300 font-medium">
+                          💡 Strongly Recommend: Enable Auto Wallet Reload to prevent campaign interruptions
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Wallet Funding Info */}
+                <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-4">
+                  <div className="text-sm font-semibold text-blue-400 mb-2">💳 Wallet Funding Guide</div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>• Campaign requires ${costs.total} total</div>
+                    <div>• Current balance: ${walletBalance.toFixed(2)}</div>
+                    <div>• Shortfall: ${Math.max(0, parseFloat(costs.total) - walletBalance).toFixed(2)}</div>
                   </div>
                 </div>
 
