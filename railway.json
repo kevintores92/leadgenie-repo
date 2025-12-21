@@ -51,9 +51,9 @@
       "source": {
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
-      "rootDirectory": "my-saas-platform/apps/Dashboard-Dark",
-      "buildCommand": "cd my-saas-platform/apps/Dashboard-Dark && npm ci && npm run build",
-      "startCommand": "cd my-saas-platform/apps/Dashboard-Dark && node_modules/.bin/serve -s dist/public -l $PORT",
+      "rootDirectory": "LeadGenieEngine",
+      "buildCommand": "npm ci && npm run build",
+      "startCommand": "npm run start",
       "variables": {
         "NODE_ENV": "production",
         "VITE_DEV_AUTH_EMAIL": "admin@example.com",
