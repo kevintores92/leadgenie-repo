@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Building2, MapPin, User, Shield, CheckCircle2 } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
+import * as api from "@/lib/api";
 
 const businessTypes = [
   "Sole Proprietorship",
@@ -55,6 +56,7 @@ export default function BusinessInfo() {
     description: ""
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [, navigate] = useLocation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -68,10 +70,18 @@ export default function BusinessInfo() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
-    setTimeout(() => {
+    
+    try {
+      // TODO: Create backend endpoint for business info
+      // await api.updateBusinessInfo(formData);
       navigate("/upload");
-    }, 1000);
+    } catch (err: any) {
+      setError(err.message || "Failed to save business information");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -92,6 +102,13 @@ export default function BusinessInfo() {
               <p className="text-muted-foreground">Complete your profile for A2P 10DLC Registration</p>
             </div>
           </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="glass-card rounded-lg border border-red-500/50 bg-red-500/10 p-4 mb-6">
+              <p className="text-red-400">{error}</p>
+            </div>
+          )}
 
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Left Side - Form */}

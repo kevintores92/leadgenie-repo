@@ -3,10 +3,11 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Upload, FileUp, CheckCircle2, ArrowRight } from "lucide-react";
+import { Upload, FileUp, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import * as api from "@/lib/api";
 
 const csvFields = [
   "propertyAddress",
@@ -37,9 +38,11 @@ const contactFields = [
 ];
 
 export default function UploadList() {
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [showMapping, setShowMapping] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
   const [, navigate] = useLocation();
   const [mappings, setMappings] = useState<Record<string, string>>({});
 
@@ -47,7 +50,7 @@ export default function UploadList() {
     const file = e.target.files?.[0];
     if (file) {
       setFileName(file.name);
-      setUploadedFile(file.name);
+      setUploadedFile(file);
       setShowMapping(true);
       // Initialize mappings
       const newMappings: Record<string, string> = {};
@@ -62,11 +65,24 @@ export default function UploadList() {
     setMappings(prev => ({ ...prev, [csvField]: contactField }));
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    if (!uploadedFile) return;
+    
+    setError("");
+    setUploading(true);
     setShowMapping(false);
-    setTimeout(() => {
-      navigate("/campaign/new");
-    }, 500);
+    
+    try {
+      await api.uploadContacts(uploadedFile);
+      setTimeout(() => {
+        navigate("/campaign/new");
+      }, 500);
+    } catch (err: any) {
+      setError(err.message || "Failed to upload contacts");
+      setShowMapping(true);
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -87,6 +103,13 @@ export default function UploadList() {
               <p className="text-muted-foreground">Upload your CSV file and map columns to contact fields</p>
             </div>
           </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="glass-card rounded-lg border border-red-500/50 bg-red-500/10 p-4 mb-6">
+              <p className="text-red-400">{error}</p>
+            </div>
+          )}
 
           {/* Upload Area */}
           {!uploadedFile ? (
@@ -199,10 +222,20 @@ export default function UploadList() {
                 <Button
                   data-testid="button-confirm-mapping"
                   onClick={handleContinue}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  disabled={uploading}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50"
                 >
-                  Continue
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               </div>
             </DialogContent>

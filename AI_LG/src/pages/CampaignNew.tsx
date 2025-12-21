@@ -1,44 +1,95 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Rocket, MessageCircle, Phone, Clock, Users } from "lucide-react";
+import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet } from "lucide-react";
+import * as api from "@/lib/api";
 
-const campaignTypes = ["SMS", "Cold Calling", "Warm Calling"];
-const messageTemplates = [
-  "Hey {{firstName}}, interested in refinancing?",
-  "Quick question about your property at {{address}}",
-  "Can we help you with {{property}}?"
-];
-
-const COST_PER_NUMBER = 0.01; // $0.01 per phone number
+// Pricing constants
+const SMS_COST = 0.02; // $0.02 per SMS
+const TWILIO_VOICE_COST_PER_MIN = 0.014; // $0.014 per minute
+const AI_VOICE_COST_PER_MIN = 0.06; // Vapi AI cost per minute
+const AVG_CALL_DURATION_MIN = 2; // Average 2 minute call
+const DLC_BRAND_REGISTRATION = 4.00; // One-time $4
+const DLC_CAMPAIGN_REGISTRATION = 15.00; // One-time $15
 
 export default function CampaignNew() {
   const [campaignName, setCampaignName] = useState("");
   const [campaignType, setCampaignType] = useState("SMS");
-  const [selectedTemplate, setSelectedTemplate] = useState("");
   const [phoneNumbers, setPhoneNumbers] = useState(1000);
   const [loading, setLoading] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loadingWallet, setLoadingWallet] = useState(true);
+  const [error, setError] = useState("");
   const [, navigate] = useLocation();
 
+  useEffect(() => {
+    loadWalletBalance();
+  }, []);
+
+  async function loadWalletBalance() {
+    try {
+      setLoadingWallet(true);
+      const data = await api.getWalletBalance();
+      setWalletBalance(data.balance || 0);
+    } catch (err) {
+      console.error('Failed to load wallet:', err);
+    } finally {
+      setLoadingWallet(false);
+    }
+  }
+
   const calculateEstimatedCost = () => {
-    return (phoneNumbers * COST_PER_NUMBER).toFixed(2);
+    let costPerContact = 0;
+    
+    if (campaignType === "SMS") {
+      costPerContact = SMS_COST;
+    } else {
+      // Voice: (Twilio + AI) * 2 markup * avg duration
+      costPerContact = (TWILIO_VOICE_COST_PER_MIN + AI_VOICE_COST_PER_MIN) * 2 * AVG_CALL_DURATION_MIN;
+    }
+    
+    const messagingCost = phoneNumbers * costPerContact;
+    const dlcFees = DLC_BRAND_REGISTRATION + DLC_CAMPAIGN_REGISTRATION;
+    
+    return {
+      messagingCost: messagingCost.toFixed(2),
+      dlcFees: dlcFees.toFixed(2),
+      total: (messagingCost + dlcFees).toFixed(2)
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    
+    const costs = calculateEstimatedCost();
+    if (walletBalance < parseFloat(costs.total)) {
+      setError("Insufficient wallet balance. Please top up your account.");
+      return;
+    }
+    
     setLoading(true);
-    setTimeout(() => {
+    
+    try {
+      await api.createCampaign({
+        name: campaignName,
+        type: campaignType,
+        estimatedContacts: phoneNumbers
+      });
       navigate("/dashboard");
-    }, 1000);
+    } catch (err: any) {
+      setError(err.message || "Failed to create campaign");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const estimatedCost = calculateEstimatedCost();
+  const costs = calculateEstimatedCost();
 
   return (
     <AppLayout>
@@ -94,7 +145,7 @@ export default function CampaignNew() {
                 </div>
               </motion.div>
 
-              {/* Message Configuration */}
+              {/* Campaign Type */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -105,7 +156,7 @@ export default function CampaignNew() {
                   <div className="w-8 h-8 rounded-full bg-blue-500/30 flex items-center justify-center text-sm font-bold text-blue-400">
                     2
                   </div>
-                  <h3 className="font-semibold">Message Configuration</h3>
+                  <h3 className="font-semibold">Campaign Type</h3>
                 </div>
 
                 <Tabs value={campaignType} onValueChange={setCampaignType} className="w-full">
@@ -116,7 +167,7 @@ export default function CampaignNew() {
                       data-testid="tab-sms"
                     >
                       <MessageCircle className="w-4 h-4 mr-1" />
-                      SMS + Warm Calling (Mobile)
+                      SMS + Warm Calling
                     </TabsTrigger>
                     <TabsTrigger 
                       value="Cold Calling" 
@@ -124,38 +175,29 @@ export default function CampaignNew() {
                       data-testid="tab-cold-calls"
                     >
                       <Phone className="w-4 h-4 mr-1" />
-                      Cold Calling (Landlines)
+                      Cold Calling
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="SMS" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="template" className="text-sm font-medium">
-                        Message Template <span className="text-destructive">*</span>
-                      </Label>
-                      <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                        <SelectTrigger className="glass-card border-white/10 focus:border-primary">
-                          <SelectValue placeholder="Choose a template" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card border-white/10">
-                          {messageTemplates.map((template, i) => (
-                            <SelectItem key={i} value={template}>{template}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Variables: firstName, lastName, address, property
-                      </p>
+                    <div className="text-sm text-muted-foreground">
+                      SMS campaign with AI-powered responses and warm calling for engaged leads.
                     </div>
                   </TabsContent>
 
                   <TabsContent value="Cold Calling" className="space-y-4">
                     <div className="text-sm text-muted-foreground">
-                      Cold calling campaigns will be configured with landline optimization and auto-dialing settings.
+                      Cold calling campaigns with AI voice agents for landline optimization.
                     </div>
                   </TabsContent>
                 </Tabs>
               </motion.div>
+
+              {error && (
+                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3">
@@ -171,10 +213,17 @@ export default function CampaignNew() {
                 <Button
                   data-testid="button-launch-campaign"
                   type="submit"
-                  disabled={loading || !campaignName}
+                  disabled={loading || !campaignName || loadingWallet}
                   className="flex-1 h-11 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold"
                 >
-                  {loading ? "Launching..." : "Launch Campaign"}
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Launching...
+                    </>
+                  ) : (
+                    "Launch Campaign"
+                  )}
                 </Button>
               </div>
             </form>
@@ -194,6 +243,26 @@ export default function CampaignNew() {
               </h3>
 
               <div className="space-y-6">
+                {/* Wallet Balance */}
+                <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Wallet className="w-4 h-4" />
+                      Wallet Balance
+                    </span>
+                    <button
+                      onClick={loadWalletBalance}
+                      disabled={loadingWallet}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {loadingWallet ? 'Loading...' : 'Reload'}
+                    </button>
+                  </div>
+                  <div className="text-2xl font-bold text-green-400">
+                    ${walletBalance.toFixed(2)}
+                  </div>
+                </div>
+
                 {/* Recipients */}
                 <div className="border-b border-white/5 pb-4">
                   <div className="flex items-center justify-between mb-2">
@@ -221,12 +290,25 @@ export default function CampaignNew() {
 
                 {/* Estimated Cost */}
                 <div className="border-b border-white/5 pb-4">
-                  <div className="text-sm text-muted-foreground mb-2">Estimated Cost</div>
-                  <div className="text-3xl font-bold text-green-400 mb-1">
-                    ${estimatedCost}
+                  <div className="text-sm text-muted-foreground mb-3">Cost Breakdown</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {campaignType === "SMS" ? "SMS Messages" : "Voice Calls"}
+                      </span>
+                      <span className="font-medium">${costs.messagingCost}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">10DLC Fees</span>
+                      <span className="font-medium">${costs.dlcFees}</span>
+                    </div>
+                    <div className="border-t border-white/10 pt-2 flex justify-between">
+                      <span className="font-semibold">Total Cost</span>
+                      <span className="text-2xl font-bold text-green-400">${costs.total}</span>
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    @ ${COST_PER_NUMBER} per number
+                  <div className="text-xs text-muted-foreground mt-3">
+                    {campaignType === "SMS" ? `@ $${SMS_COST} per SMS` : `@ $${((TWILIO_VOICE_COST_PER_MIN + AI_VOICE_COST_PER_MIN) * 2 * AVG_CALL_DURATION_MIN).toFixed(3)} per call (${AVG_CALL_DURATION_MIN} min avg)`}
                   </div>
                 </div>
 
@@ -237,22 +319,7 @@ export default function CampaignNew() {
                       <Clock className="w-4 h-4" />
                       Est. Time
                     </span>
-                    <span className="font-semibold">~12 mins</span>
-                  </div>
-                </div>
-
-                {/* Preview */}
-                <div className="bg-white/5 rounded-lg p-4">
-                  <div className="text-xs font-semibold text-muted-foreground mb-3">PREVIEW</div>
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded p-3 text-xs leading-relaxed text-muted-foreground">
-                    {selectedTemplate ? (
-                      <div>
-                        <div className="text-white mb-2">Sample message preview:</div>
-                        {selectedTemplate}
-                      </div>
-                    ) : (
-                      "Select a message template to preview"
-                    )}
+                    <span className="font-semibold">~{Math.ceil(phoneNumbers / 60)} mins</span>
                   </div>
                 </div>
 
