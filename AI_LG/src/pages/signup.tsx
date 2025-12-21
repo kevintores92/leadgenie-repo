@@ -5,27 +5,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Shield, Lock, Eye, EyeOff } from "lucide-react";
+import { Shield, Eye, EyeOff, Loader2 } from "lucide-react";
+import * as api from "@/lib/api";
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [, navigate] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    
     if (password !== confirmPassword) {
-      alert("Passwords don't match");
+      setError("Passwords don't match");
       return;
     }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    
     setLoading(true);
-    // Simulate signup
-    setTimeout(() => {
-      navigate("/register");
-    }, 1000);
+    
+    try {
+      await api.signup(email, password, businessName);
+      navigate("/business-info");
+    } catch (err: any) {
+      setError(err.message || "Signup failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,7 +66,29 @@ export default function SignUp() {
               Start your autonomous lead generation journey
             </p>
 
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="businessName" className="text-sm font-medium">
+                  Business Name
+                </Label>
+                <Input
+                  id="businessName"
+                  data-testid="input-businessname"
+                  type="text"
+                  placeholder="Your Company LLC"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  required
+                  className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">
                   Email Address
