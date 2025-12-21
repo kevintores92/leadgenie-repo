@@ -18,7 +18,7 @@ const AVG_CALL_DURATION_MIN = 2; // Average 2 minute call
 const DLC_BRAND_REGISTRATION = 4.00; // One-time $4
 const DLC_CAMPAIGN_REGISTRATION = 15.00; // One-time $15
 const PHONE_NUMBER_COST = 1.15; // $1.15 per phone number per month
-const PHONE_VERIFICATION_COST = 0.05; // $0.05 per number verification
+const PHONE_VALIDATION_COST = 0.001; // $0.001 per number ($10 per 10k, no markup) - API checks type, carrier, active status
 const CONTACTS_PER_NUMBER = 250; // Rotation: 1 number per 250 contacts
 const ESTIMATED_HOT_LEAD_RATE = 0.15; // 15% conversion to hot leads
 const ESTIMATED_REPLY_RATE = 0.35; // 35% reply rate
@@ -67,19 +67,19 @@ export default function CampaignNew() {
     // Calculate all costs
     const messagingCost = phoneNumbers * costPerContact;
     const phoneNumbersCost = numbersNeeded * PHONE_NUMBER_COST;
-    const verificationCost = numbersNeeded * PHONE_VERIFICATION_COST;
+    const validationCost = phoneNumbers * PHONE_VALIDATION_COST;
     const dlcFees = DLC_BRAND_REGISTRATION + DLC_CAMPAIGN_REGISTRATION;
     
     // Calculate projected leads
     const projectedReplies = Math.round(phoneNumbers * ESTIMATED_REPLY_RATE);
     const projectedHotLeads = Math.round(phoneNumbers * ESTIMATED_HOT_LEAD_RATE);
     
-    const totalCost = messagingCost + phoneNumbersCost + verificationCost + dlcFees;
+    const totalCost = messagingCost + phoneNumbersCost + validationCost + dlcFees;
     
     return {
       messagingCost: messagingCost.toFixed(2),
       phoneNumbersCost: phoneNumbersCost.toFixed(2),
-      verificationCost: verificationCost.toFixed(2),
+      validationCost: validationCost.toFixed(2),
       dlcFees: dlcFees.toFixed(2),
       total: totalCost.toFixed(2),
       numbersNeeded,
@@ -328,8 +328,8 @@ export default function CampaignNew() {
                       <span className="font-medium">${costs.phoneNumbersCost}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Number Verification</span>
-                      <span className="font-medium">${costs.verificationCost}</span>
+                      <span className="text-muted-foreground">Phone Validation & Line Type</span>
+                      <span className="font-medium">${costs.validationCost}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">10DLC Registration</span>
@@ -346,6 +346,17 @@ export default function CampaignNew() {
                       : <div>@ ${((AI_VOICE_INBOUND_COST_PER_MIN + AI_VOICE_OUTBOUND_COST_PER_MIN) / 2 * AVG_CALL_DURATION_MIN).toFixed(3)} per call (AI Inbound + AI Outbound, {AVG_CALL_DURATION_MIN} min avg)</div>
                     }
                     <div className="text-amber-400">💡 Rotating {costs.numbersNeeded} numbers (1 per {CONTACTS_PER_NUMBER} contacts)</div>
+                    <div className="text-blue-400">🔍 Auto validation: Line type (mobile/landline), carrier, active status</div>
+                  </div>
+                </div>
+
+                {/* Auto Campaign Split Info */}
+                <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg p-4 mb-4">
+                  <div className="text-sm font-semibold text-purple-400 mb-2">🤖 Automatic Campaign Split</div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>• <span className="text-green-400">Mobile numbers</span> → SMS + Warm Calling Campaign</div>
+                    <div>• <span className="text-blue-400">Landline numbers</span> → Cold Calling Campaign</div>
+                    <div className="text-purple-300 mt-2">Auto-detected on upload, optimized for best results</div>
                   </div>
                 </div>
 
