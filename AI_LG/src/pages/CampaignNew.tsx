@@ -11,10 +11,7 @@ import * as api from "@/lib/api";
 
 // Pricing constants
 const SMS_COST = 0.02; // $0.02 per SMS (includes AI Classification + AI Replies + Carrier Fees)
-const TWILIO_VOICE_COST_PER_MIN = 0.01; // Hidden Twilio cost per minute
-const AI_VOICE_INBOUND_COST_PER_MIN = 0.06; // Vapi AI inbound cost per minute
-const AI_VOICE_OUTBOUND_COST_PER_MIN = 0.06; // Vapi AI outbound cost per minute
-const AVG_CALL_DURATION_MIN = 2; // Average 2 minute call
+const VOICE_COST_PER_CALL = 0.30; // $0.30 per call (includes AI + Carrier, 2 min avg) - marked up
 const DLC_BRAND_REGISTRATION = 4.00; // One-time $4
 const DLC_CAMPAIGN_REGISTRATION = 15.00; // One-time $15
 const PHONE_NUMBER_COST = 1.15; // $1.15 per phone number per month
@@ -56,9 +53,8 @@ export default function CampaignNew() {
     if (campaignType === "SMS") {
       costPerContact = SMS_COST;
     } else {
-      // Voice: AI inbound/outbound + hidden Twilio costs
-      const avgAiCost = (AI_VOICE_INBOUND_COST_PER_MIN + AI_VOICE_OUTBOUND_COST_PER_MIN) / 2;
-      costPerContact = (avgAiCost + TWILIO_VOICE_COST_PER_MIN) * AVG_CALL_DURATION_MIN;
+      // Voice: Marked up price includes AI + carrier costs
+      costPerContact = VOICE_COST_PER_CALL;
     }
     
     // Calculate number of phone numbers needed for rotation
@@ -343,7 +339,7 @@ export default function CampaignNew() {
                   <div className="text-xs text-muted-foreground mt-3 space-y-1">
                     {campaignType === "SMS" 
                       ? <div>@ ${SMS_COST} per SMS (includes AI Classification + AI Replies + Carrier Fees)</div>
-                      : <div>@ ${((AI_VOICE_INBOUND_COST_PER_MIN + AI_VOICE_OUTBOUND_COST_PER_MIN) / 2 * AVG_CALL_DURATION_MIN).toFixed(3)} per call (AI Inbound + AI Outbound, {AVG_CALL_DURATION_MIN} min avg)</div>
+                      : <div>@ ${VOICE_COST_PER_CALL} per call (includes AI Inbound + AI Outbound + Carrier, ~2 min avg)</div>
                     }
                     <div className="text-amber-400">💡 Rotating {costs.numbersNeeded} numbers (1 per {CONTACTS_PER_NUMBER} contacts)</div>
                     <div className="text-blue-400">🔍 Auto validation: Line type (mobile/landline), carrier, active status</div>
