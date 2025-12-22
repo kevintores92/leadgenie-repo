@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy everything
 COPY . .
 
-# Install dependencies (postinstall will generate Prisma client and run migrations)
-RUN npm ci --omit=dev
+# Install ALL dependencies (including dev deps needed for Prisma)
+RUN npm ci
 
 ENV NODE_ENV=production
 
