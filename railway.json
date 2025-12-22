@@ -51,8 +51,8 @@
       "source": {
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
-      "rootDirectory": "AI_LG
-      "buildCommand": "npm ci && npm run build",
+      "rootDirectory": "AI_LG",
+      "buildCommand": "rm -rf node_modules/.vite && npm ci --prefer-offline && npm run build",
       "startCommand": "npm run start",
       "variables": {
         "NODE_ENV": "production",
