@@ -3,24 +3,24 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy everything
-COPY . .
+# Copy package files first for better layer caching
+COPY package*.json ./
+COPY prisma ./prisma/
 
-# Verify prisma folder exists
-RUN ls -la && ls -la prisma/ || echo "Prisma folder not found"
-
-# Install ALL dependencies (including dev deps needed for Prisma)
+# Install dependencies (including dev deps for Prisma)
 RUN npm ci
 
+# Copy source code
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate --schema=./prisma/schema.prisma
+
 ENV NODE_ENV=production
+ENV PORT=5000
 
 # Expose port
 EXPOSE 5000
 
-CMD ["node", "src/server.js"]
-RUN npx prisma generate || true
-
-ENV PORT 4000
-
-# run migrations at container start, then start server
-CMD ["sh","-c","npx prisma migrate deploy && node src/server.js"]
+# Run migrations and start server
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=./prisma/schema.prisma && node src/server.js"]

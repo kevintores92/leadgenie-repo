@@ -12,7 +12,8 @@ import { PRICING } from "@/config/pricing";
 
 // Pricing constants (imported from centralized config)
 const SMS_COST = PRICING.SMS_COST;
-const VOICE_COST_PER_CALL = PRICING.VOICE_COST_PER_CALL;
+const VOICE_COST_PER_MINUTE = PRICING.VOICE_COST_PER_MINUTE;
+const ESTIMATED_CALL_DURATION_MINUTES = PRICING.ESTIMATED_CALL_DURATION_MINUTES;
 const DLC_BRAND_REGISTRATION = PRICING.DLC_BRAND_REGISTRATION;
 const DLC_CAMPAIGN_REGISTRATION = PRICING.DLC_CAMPAIGN_REGISTRATION;
 const PHONE_NUMBER_COST = PRICING.PHONE_NUMBER_COST;
@@ -57,8 +58,8 @@ export default function CampaignNew() {
     if (campaignType === "SMS") {
       costPerContact = SMS_COST;
     } else {
-      // Voice: Marked up price includes AI + carrier costs
-      costPerContact = VOICE_COST_PER_CALL;
+      // Voice: Per-minute pricing includes AI + carrier costs
+      costPerContact = VOICE_COST_PER_MINUTE * ESTIMATED_CALL_DURATION_MINUTES;
     }
     
     // Apply daily campaign limit: max 2000 contacts per brand per day
@@ -71,7 +72,7 @@ export default function CampaignNew() {
     // Calculate all costs (based on today's sends only)
     const messagingCost = contactsToday * costPerContact;
     const phoneNumbersCost = numbersNeeded * PHONE_NUMBER_COST;
-    const validationCost = phoneNumbers * PHONE_VALIDATION_COST; // Validate all numbers upfront
+    const validationCost = 0; // Phone validation is now free // Validate all numbers upfront
     const dlcFees = DLC_BRAND_REGISTRATION + DLC_CAMPAIGN_REGISTRATION;
     
     // Calculate projected leads (based on today's sends)
@@ -417,7 +418,7 @@ export default function CampaignNew() {
                   <div className="text-xs text-muted-foreground mt-3 space-y-1">
                     {campaignType === "SMS" 
                       ? <div>@ ${SMS_COST} per SMS (includes AI Classification + AI Replies + Carrier Fees)</div>
-                      : <div>@ ${VOICE_COST_PER_CALL} per call (includes AI Inbound + AI Outbound + Carrier, ~2 min avg)</div>
+                      : <div>@ ${VOICE_COST_PER_MINUTE} per minute (includes AI Inbound + AI Outbound + Carrier, ~{ESTIMATED_CALL_DURATION_MINUTES} min avg)</div>
                     }
                     <div className="text-amber-400">💡 Rotating {costs.numbersNeeded} numbers (1 per {CONTACTS_PER_NUMBER} contacts)</div>
                     <div className="text-blue-400">🔍 Auto validation: Line type (mobile/landline), carrier, active status</div>

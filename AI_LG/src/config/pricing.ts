@@ -9,8 +9,8 @@ export const PRICING = {
   
   // Usage-Based Charges (billed from wallet)
   SMS_COST: 0.02, // $0.02 per SMS (includes AI classification + AI replies + carrier fees)
-  VOICE_COST_PER_CALL: 0.30, // $0.30 per call (~2 min avg, includes AI + carrier)
-  PHONE_VALIDATION_COST: 0.001, // $0.001 per number ($10 per 10k)
+  VOICE_COST_PER_MINUTE: 0.20, // $0.20 per minute (includes AI + carrier)
+  PHONE_VALIDATION_COST: 0.00, // Free phone validation (included)
   
   // One-Time Fees (included in subscription)
   DLC_BRAND_REGISTRATION: 4.00, // $4 monthly carrier fee (at cost)
@@ -24,6 +24,9 @@ export const PRICING = {
   // Estimated Conversion Rates
   ESTIMATED_REPLY_RATE: 0.35, // 35% reply rate
   ESTIMATED_HOT_LEAD_RATE: 0.15, // 15% conversion to hot leads
+  
+  // Call Duration Estimate
+  ESTIMATED_CALL_DURATION_MINUTES: 2.0, // Average call duration (2 minutes)
 } as const;
 
 // Helper to format currency

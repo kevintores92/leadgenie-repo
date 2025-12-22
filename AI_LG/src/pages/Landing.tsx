@@ -247,7 +247,7 @@ export default function Landing() {
                   <Phone className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="font-medium">AI Voice Calls</div>
-                    <div className="text-sm text-muted-foreground">$0.30/call (~2 min avg, includes AI + carrier)</div>
+                    <div className="text-sm text-muted-foreground">$0.20/minute (includes AI + carrier)</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -255,13 +255,6 @@ export default function Landing() {
                   <div>
                     <div className="font-medium">SMS Messages</div>
                     <div className="text-sm text-muted-foreground">$0.02/SMS (includes AI classification + replies)</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-medium">Phone Validation</div>
-                    <div className="text-sm text-muted-foreground">$0.001/number (landline detection, carrier lookup)</div>
                   </div>
                 </div>
               </div>
