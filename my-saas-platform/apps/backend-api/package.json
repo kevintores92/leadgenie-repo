@@ -2,8 +2,9 @@
   "name": "backend-api",
   "version": "0.1.0",
   "private": true,
+  "main": "src/server.js",
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "migrate:dev": "prisma migrate dev",
     "start": "node src/server.js",
