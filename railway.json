@@ -6,8 +6,6 @@
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/backend-api",
-      "builder": "DOCKERFILE",
-      "dockerfilePath": "Dockerfile",
       "startCommand": "node src/server.js",
       "variables": {
         "PORT": "5000",
@@ -29,8 +27,6 @@
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/worker-services",
-      "builder": "DOCKERFILE",
-      "dockerfilePath": "Dockerfile",
       "startCommand": "node src/campaignSender.js",
       "variables": {
         "NODE_ENV": "production",
