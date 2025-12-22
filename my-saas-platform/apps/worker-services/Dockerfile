@@ -3,11 +3,18 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy everything
+# Copy package files first for better layer caching
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
 COPY . .
 
-# Install dependencies (this will also run postinstall and generate Prisma client)
-RUN npm ci --omit=dev
+# Generate Prisma client
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 ENV NODE_ENV=production
 
