@@ -1,7 +1,0 @@
-node_modules
-.env
-.venv
-dist
-.git
-npm-debug.log
-coverage
