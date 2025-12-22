@@ -25,6 +25,142 @@ router.use((req, res, next) => {
   next();
 });
 
+// Helper to provision phone numbers for a campaign (moved from signup)
+async function provisionCampaignPhoneNumbers({ orgId, areaCode, count = 1 }) {
+  const FAKE = process.env.FAKE_TWILIO === '1';
+  const label = 'campaign';
+
+  if (FAKE) {
+    const numbers = [];
+    for (let i = 0; i < count; i++) {
+      const fake = `+1555${Math.floor(Math.random() * 900000) + 100000}`;
+      const rec = await prisma.sendingNumber.create({
+        data: { organizationId: orgId, phoneNumber: fake, label },
+      });
+      numbers.push(rec);
+    }
+    return { created: true, numbers, fake: true };
+  }
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!accountSid || !authToken) {
+    return { created: false, reason: 'missing_twilio_master_creds' };
+  }
+
+  const Twilio = require('twilio');
+  const client = Twilio(accountSid, authToken);
+
+  const desiredAreaCode = areaCode || undefined;
+  const avail = await client.availablePhoneNumbers('US').local.list({ areaCode: desiredAreaCode, limit: count });
+  if (!avail || avail.length === 0) {
+    return { created: false, reason: 'no_numbers_available' };
+  }
+
+  const numbers = [];
+  for (const candidate of avail.slice(0, count)) {
+    const purchased = await client.incomingPhoneNumbers.create({ phoneNumber: candidate.phoneNumber });
+    const rec = await prisma.sendingNumber.create({
+      data: { organizationId: orgId, phoneNumber: purchased.phoneNumber, label },
+    });
+    numbers.push(rec);
+  }
+  return { created: true, numbers, fake: false };
+}
+
+// POST /campaigns - Create a new campaign
+router.post('/', async (req, res) => {
+  const { name, type, estimatedContacts, areaCode } = req.body || {};
+  const orgId = req.auth.organizationId;
+
+  if (!name || !type) {
+    return res.status(400).json({ error: 'missing required fields: name, type' });
+  }
+
+  // Get org's default brand
+  const brand = await prisma.brand.findFirst({ where: { orgId } });
+  if (!brand) {
+    return res.status(404).json({ error: 'no brand found for organization' });
+  }
+
+  // Daily campaign sending limit: 2000 messages per brand per day
+  // (Manual SMS is not affected by this limit)
+  const DAILY_CAMPAIGN_LIMIT = 2000;
+  const contactsToSendToday = Math.min(estimatedContacts || 0, DAILY_CAMPAIGN_LIMIT);
+  const contactsQueuedForLater = Math.max(0, (estimatedContacts || 0) - DAILY_CAMPAIGN_LIMIT);
+
+  // Calculate number of phone numbers needed (1 per 250 contacts)
+  const CONTACTS_PER_NUMBER = 250;
+  const numbersNeededTotal = Math.max(1, Math.ceil(contactsToSendToday / CONTACTS_PER_NUMBER));
+
+  // Check existing phone numbers for this organization
+  const existingNumbers = await prisma.sendingNumber.findMany({
+    where: { 
+      organizationId: orgId,
+      enabled: true
+    }
+  });
+
+  const existingCount = existingNumbers.length;
+  const numbersToPurchase = Math.max(0, numbersNeededTotal - existingCount);
+
+  // Create campaign
+  const campaign = await prisma.campaign.create({
+    data: {
+      brandId: brand.id,
+      name,
+      callingMode: type,
+      status: 'DRAFT',
+      batchSize: 50,
+      intervalMinutes: 30,
+    },
+  });
+
+  // Provision phone numbers with the specified area code (only if needed)
+  let phoneNumbersResult = null;
+  if (numbersToPurchase > 0) {
+    try {
+      phoneNumbersResult = await provisionCampaignPhoneNumbers({ 
+        orgId, 
+        areaCode, 
+        count: numbersToPurchase 
+      });
+    } catch (e) {
+      console.error('Failed to provision campaign phone numbers:', e);
+      phoneNumbersResult = { 
+        created: false, 
+        reason: 'phone_provisioning_error', 
+        details: e && e.message 
+      };
+    }
+  } else {
+    phoneNumbersResult = {
+      created: false,
+      reason: 'using_existing_numbers',
+      message: `Using ${existingCount} existing phone numbers`
+    };
+  }
+
+  res.status(201).json({
+    ok: true,
+    campaign: {
+      id: campaign.id,
+      name: campaign.name,
+      type: campaign.callingMode,
+      status: campaign.status,
+    },
+    phoneNumbers: phoneNumbersResult,
+    limits: {
+      dailyCampaignLimit: DAILY_CAMPAIGN_LIMIT,
+      contactsToSendToday,
+      contactsQueuedForLater,
+      existingNumbers: existingCount,
+      numbersPurchased: numbersToPurchase,
+      totalNumbers: existingCount + (phoneNumbersResult?.numbers?.length || 0)
+    }
+  });
+});
+
 router.post('/:id/start', async (req, res) => {
   const { id } = req.params;
   const { batchSize, intervalMinutes } = req.body || {};

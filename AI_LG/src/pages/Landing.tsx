@@ -146,9 +146,9 @@ export default function Landing() {
                 onClick={handleSignUp}
                 size="lg"
                 className="h-12 px-8 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold group border border-white"
-                data-testid="button-hero-free-trial"
+                data-testid="button-hero-get-started"
               >
-                Start Free Trial
+                Get Started
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button
@@ -162,8 +162,124 @@ export default function Landing() {
             </motion.div>
 
             <motion.p variants={fadeInUp} className="text-xs text-muted-foreground">
-              No credit card required • Instant access • Results in minutes
+              $49/month covers 10DLC registration, phone numbers, and system access • Pay only for usage
             </motion.p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-24 relative">
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-block glass-card px-4 py-2 rounded-full border border-primary/30 mb-6">
+              <span className="text-sm font-medium">Simple Pricing</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">Transparent Pricing</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Monthly subscription covers your infrastructure. Usage-based charges billed separately.
+            </p>
+          </motion.div>
+
+          <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
+            {/* Monthly Subscription Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="glass-card rounded-2xl p-8 border border-primary/30 relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+              <div className="relative">
+                <div className="text-sm font-medium text-primary mb-2">Monthly Subscription</div>
+                <div className="flex items-baseline mb-6">
+                  <span className="text-5xl font-bold">$49</span>
+                  <span className="text-muted-foreground ml-2">/month</span>
+                </div>
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-medium">10DLC Registration</div>
+                      <div className="text-sm text-muted-foreground">Brand + Campaign ($19 carrier fee at cost)</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-medium">6-8 Dedicated Phone Numbers</div>
+                      <div className="text-sm text-muted-foreground">Voice + SMS numbers for campaigns</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-medium">Platform Access</div>
+                      <div className="text-sm text-muted-foreground">Dashboard, analytics, campaign management</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground bg-white/5 rounded-lg p-3">
+                  💡 Covers all fixed monthly costs: carrier compliance fees, phone line rentals, and system maintenance
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Usage-Based Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="glass-card rounded-2xl p-8 border border-white/10"
+            >
+              <div className="text-sm font-medium text-blue-400 mb-2">Usage-Based Charges</div>
+              <div className="flex items-baseline mb-6">
+                <span className="text-2xl font-bold text-muted-foreground">Pay As You Go</span>
+              </div>
+              <div className="space-y-3 mb-6">
+                <div className="flex items-start gap-3">
+                  <Phone className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-medium">AI Voice Calls</div>
+                    <div className="text-sm text-muted-foreground">$0.30/call (~2 min avg, includes AI + carrier)</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <MessageSquare className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-medium">SMS Messages</div>
+                    <div className="text-sm text-muted-foreground">$0.02/SMS (includes AI classification + replies)</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-medium">Phone Validation</div>
+                    <div className="text-sm text-muted-foreground">$0.001/number (landline detection, carrier lookup)</div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground bg-white/5 rounded-lg p-3">
+                💳 Billed from your wallet balance. Top up anytime via PayPal.
+              </div>
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <p className="text-sm text-muted-foreground">
+              🔒 No hidden fees • Cancel anytime • Usage charges clearly itemized
+            </p>
           </motion.div>
         </div>
       </section>
@@ -317,13 +433,13 @@ export default function Landing() {
               onClick={handleSignUp}
               size="lg"
               className="h-12 px-8 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold group border border-white"
-              data-testid="button-cta-free-trial"
+              data-testid="button-cta-get-started"
             >
-              Start Your Free Trial Now
+              Get Started Now
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
             <p className="text-sm text-muted-foreground mt-6">
-              No credit card • Instant access • See results immediately
+              $49/month subscription • Covers 10DLC, phone numbers, and platform access
             </p>
           </motion.div>
         </div>

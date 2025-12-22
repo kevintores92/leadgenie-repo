@@ -191,6 +191,28 @@ async function enqueueCampaign(organizationId, campaignId, batchSize = 50, inter
   const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
   const bypassBusinessHours = (campaign?.callingMode === 'OUTBOUND_REPLY');
 
+  // 10DLC GATING: Block SMS campaigns until 10DLC is approved
+  // Voice campaigns (landline cold calling) can proceed immediately
+  if (!org.dlcCampaignRegistered) {
+    const isSMSCampaign = campaign?.callingMode === 'SMS' || campaign?.callingMode === 'OUTBOUND_REPLY';
+    if (isSMSCampaign) {
+      console.log(`[Campaign] Pausing SMS campaign ${campaignId} - 10DLC not approved for org ${organizationId}`);
+      await prisma.campaign.update({ 
+        where: { id: campaignId }, 
+        data: { status: 'PAUSED', pausedReason: '10DLC_PENDING' }
+      });
+      await prisma.activity.create({ 
+        data: { 
+          organizationId, 
+          type: 'CAMPAIGN_PAUSED', 
+          message: 'SMS campaign paused - awaiting 10DLC approval', 
+          meta: { campaignId, reason: '10DLC_PENDING' }
+        }
+      });
+      return;
+    }
+  }
+
   // load contacts for org
   const contacts = await prisma.contact.findMany({ where: { organizationId } });
   if (!contacts || contacts.length === 0) return;

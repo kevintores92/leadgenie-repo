@@ -8,22 +8,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet } from "lucide-react";
 import * as api from "@/lib/api";
+import { PRICING } from "@/config/pricing";
 
-// Pricing constants
-const SMS_COST = 0.02; // $0.02 per SMS (includes AI Classification + AI Replies + Carrier Fees)
-const VOICE_COST_PER_CALL = 0.30; // $0.30 per call (includes AI + Carrier, 2 min avg) - marked up
-const DLC_BRAND_REGISTRATION = 4.00; // One-time $4
-const DLC_CAMPAIGN_REGISTRATION = 15.00; // One-time $15
-const PHONE_NUMBER_COST = 1.15; // $1.15 per phone number per month
-const PHONE_VALIDATION_COST = 0.001; // $0.001 per number ($10 per 10k, no markup) - API checks type, carrier, active status
-const CONTACTS_PER_NUMBER = 250; // Rotation: 1 number per 250 contacts
-const ESTIMATED_HOT_LEAD_RATE = 0.15; // 15% conversion to hot leads
-const ESTIMATED_REPLY_RATE = 0.35; // 35% reply rate
+// Pricing constants (imported from centralized config)
+const SMS_COST = PRICING.SMS_COST;
+const VOICE_COST_PER_CALL = PRICING.VOICE_COST_PER_CALL;
+const DLC_BRAND_REGISTRATION = PRICING.DLC_BRAND_REGISTRATION;
+const DLC_CAMPAIGN_REGISTRATION = PRICING.DLC_CAMPAIGN_REGISTRATION;
+const PHONE_NUMBER_COST = PRICING.PHONE_NUMBER_COST;
+const PHONE_VALIDATION_COST = PRICING.PHONE_VALIDATION_COST;
+const CONTACTS_PER_NUMBER = PRICING.CONTACTS_PER_NUMBER;
+const ESTIMATED_HOT_LEAD_RATE = PRICING.ESTIMATED_HOT_LEAD_RATE;
+const ESTIMATED_REPLY_RATE = PRICING.ESTIMATED_REPLY_RATE;
+const DAILY_CAMPAIGN_LIMIT = PRICING.DAILY_CAMPAIGN_LIMIT;
+const MONTHLY_SUBSCRIPTION = PRICING.MONTHLY_SUBSCRIPTION;
 
 export default function CampaignNew() {
   const [campaignName, setCampaignName] = useState("");
   const [campaignType, setCampaignType] = useState("SMS");
   const [phoneNumbers, setPhoneNumbers] = useState(1000);
+  const [areaCode, setAreaCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [loadingWallet, setLoadingWallet] = useState(true);
@@ -57,18 +61,22 @@ export default function CampaignNew() {
       costPerContact = VOICE_COST_PER_CALL;
     }
     
-    // Calculate number of phone numbers needed for rotation
-    const numbersNeeded = Math.ceil(phoneNumbers / CONTACTS_PER_NUMBER);
+    // Apply daily campaign limit: max 2000 contacts per brand per day
+    const contactsToday = Math.min(phoneNumbers, DAILY_CAMPAIGN_LIMIT);
+    const contactsQueuedForLater = Math.max(0, phoneNumbers - DAILY_CAMPAIGN_LIMIT);
     
-    // Calculate all costs
-    const messagingCost = phoneNumbers * costPerContact;
+    // Calculate number of phone numbers needed for rotation (based on today's sends only)
+    const numbersNeeded = Math.ceil(contactsToday / CONTACTS_PER_NUMBER);
+    
+    // Calculate all costs (based on today's sends only)
+    const messagingCost = contactsToday * costPerContact;
     const phoneNumbersCost = numbersNeeded * PHONE_NUMBER_COST;
-    const validationCost = phoneNumbers * PHONE_VALIDATION_COST;
+    const validationCost = phoneNumbers * PHONE_VALIDATION_COST; // Validate all numbers upfront
     const dlcFees = DLC_BRAND_REGISTRATION + DLC_CAMPAIGN_REGISTRATION;
     
-    // Calculate projected leads
-    const projectedReplies = Math.round(phoneNumbers * ESTIMATED_REPLY_RATE);
-    const projectedHotLeads = Math.round(phoneNumbers * ESTIMATED_HOT_LEAD_RATE);
+    // Calculate projected leads (based on today's sends)
+    const projectedReplies = Math.round(contactsToday * ESTIMATED_REPLY_RATE);
+    const projectedHotLeads = Math.round(contactsToday * ESTIMATED_HOT_LEAD_RATE);
     
     const totalCost = messagingCost + phoneNumbersCost + validationCost + dlcFees;
     
@@ -80,13 +88,20 @@ export default function CampaignNew() {
       total: totalCost.toFixed(2),
       numbersNeeded,
       projectedReplies,
-      projectedHotLeads
+      projectedHotLeads,
+      contactsToday,
+      contactsQueuedForLater
     };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    
+    if (!areaCode || areaCode.length !== 3) {
+      setError("Please enter a valid 3-digit area code");
+      return;
+    }
     
     const costs = calculateEstimatedCost();
     if (walletBalance < parseFloat(costs.total)) {
@@ -100,7 +115,8 @@ export default function CampaignNew() {
       await api.createCampaign({
         name: campaignName,
         type: campaignType,
-        estimatedContacts: phoneNumbers
+        estimatedContacts: phoneNumbers,
+        areaCode: areaCode
       });
       navigate("/dashboard");
     } catch (err: any) {
@@ -163,6 +179,29 @@ export default function CampaignNew() {
                       className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="areaCode" className="text-sm font-medium">
+                      Area Code <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="areaCode"
+                      data-testid="input-area-code"
+                      value={areaCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setAreaCode(value);
+                      }}
+                      placeholder="e.g., 415, 212, 310"
+                      required
+                      maxLength={3}
+                      pattern="[0-9]{3}"
+                      className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      📍 Choose an area code for your campaign phone numbers (e.g., 415 for San Francisco)
+                    </p>
+                  </div>
                 </div>
               </motion.div>
 
@@ -208,10 +247,39 @@ export default function CampaignNew() {
 
                   <TabsContent value="Cold Calling" className="space-y-4">
                     <div className="text-sm text-muted-foreground">
-                      Cold calling campaigns with AI voice agents for landline optimization.
+                      Cold calling campaigns with AI voice agents for landline optimization. <span className="font-semibold text-amber-400">Landlines only</span> - mobile numbers will be queued for SMS once 10DLC is approved.
                     </div>
                   </TabsContent>
                 </Tabs>
+
+                {/* Campaign Flow Info */}
+                <div className="mt-6 p-4 bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg">
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Phone className="w-3.5 h-3.5 text-green-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-green-400">AI Cold Calling Begins Immediately</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Voice campaigns start as soon as you launch. <span className="text-amber-300 font-medium">Landlines only</span> - AI agents qualify leads in real-time via voice calls.
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <MessageCircle className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-blue-400">Once 10DLC is Approved: SMS Enabled</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          After 10DLC registration (~2-5 days), SMS campaigns activate. All positive replies are automatically nurtured until qualified.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
 
               {error && (
@@ -234,7 +302,7 @@ export default function CampaignNew() {
                 <Button
                   data-testid="button-launch-campaign"
                   type="submit"
-                  disabled={loading || !campaignName || loadingWallet}
+                  disabled={loading || !campaignName || !areaCode || areaCode.length !== 3 || loadingWallet}
                   className="flex-1 h-11 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold"
                 >
                   {loading ? (
@@ -307,6 +375,16 @@ export default function CampaignNew() {
                     <span>100</span>
                     <span>10,000</span>
                   </div>
+                  {costs.contactsQueuedForLater > 0 && (
+                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <div className="text-xs text-blue-300 space-y-1">
+                        <div className="font-semibold">📅 Daily Limit Applied</div>
+                        <div>• Sending today: <span className="text-white font-medium">{costs.contactsToday.toLocaleString()}</span></div>
+                        <div>• Queued for tomorrow: <span className="text-white font-medium">{costs.contactsQueuedForLater.toLocaleString()}</span></div>
+                        <div className="text-blue-200 mt-2">Campaign sending is limited to {DAILY_CAMPAIGN_LIMIT.toLocaleString()} contacts/day per brand to maintain deliverability. Manual SMS is not affected.</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Estimated Cost */}
@@ -358,7 +436,7 @@ export default function CampaignNew() {
 
                 {/* Projected Results */}
                 <div className="border-b border-white/5 pb-4">
-                  <div className="text-sm text-muted-foreground mb-3">Projected Results</div>
+                  <div className="text-sm text-muted-foreground mb-3">Projected Results (Today)</div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Expected Replies</span>
@@ -370,7 +448,7 @@ export default function CampaignNew() {
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Based on industry averages: {(ESTIMATED_REPLY_RATE * 100).toFixed(0)}% reply rate, {(ESTIMATED_HOT_LEAD_RATE * 100).toFixed(0)}% hot leads
+                    Based on {costs.contactsToday.toLocaleString()} contacts sending today: {(ESTIMATED_REPLY_RATE * 100).toFixed(0)}% reply rate, {(ESTIMATED_HOT_LEAD_RATE * 100).toFixed(0)}% hot leads
                   </div>
                 </div>
 

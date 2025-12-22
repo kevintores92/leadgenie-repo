@@ -200,6 +200,13 @@ const worker = new Worker(
       return { skipped: true, reason: 'opted_out' };
     }
 
+    // LANDLINE-ONLY ENFORCEMENT: Voice campaigns only call landlines
+    // Mobile numbers should go through SMS campaigns after 10DLC approval
+    if (contact.phoneType && contact.phoneType !== 'landline') {
+      console.log(`[Voice] Skipping ${contact.phoneType} number for cold calling:`, contactId);
+      return { skipped: true, reason: 'not_landline' };
+    }
+
     try {
       const vapi = getVapiClient();
       const assistant = buildAssistant(contact, callType);

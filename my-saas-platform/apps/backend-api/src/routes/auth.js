@@ -174,29 +174,17 @@ router.post('/signup', async (req, res) => {
       },
     });
 
-    // Seed wallet + subscription so workers can send during trial.
-    const trialBalanceCents = Number(process.env.TRIAL_WALLET_CENTS || '500');
+    // Create wallet with zero balance - user must subscribe via PayPal to add funds
     await tx.organizationWallet.create({
       data: {
         organizationId: org.id,
-        balanceCents: Number.isFinite(trialBalanceCents) ? trialBalanceCents : 0,
+        balanceCents: 0,
         isFrozen: false,
       },
     });
 
-    // Subscription is required by worker billing gate. Use a deterministic unique providerSubId.
-    const trialDays = Number(process.env.TRIAL_DAYS || '7');
-    const currentPeriodEnd = new Date(Date.now() + (Number.isFinite(trialDays) ? trialDays : 7) * 24 * 60 * 60 * 1000);
-    await tx.organizationSubscription.create({
-      data: {
-        organizationId: org.id,
-        provider: 'PAYPAL',
-        providerSubId: `trial_${org.id}_${uuidv4()}`,
-        planId: 'TRIAL',
-        status: 'ACTIVE',
-        currentPeriodEnd,
-      },
-    });
+    // No subscription created at signup - user must activate PayPal subscription
+    // This ensures 10DLC fees and phone number costs are covered by monthly billing
 
     // Set user's active brand
     await tx.user.update({ where: { id: user.id }, data: { activeBrandId: brand.id } });
@@ -204,19 +192,13 @@ router.post('/signup', async (req, res) => {
     return { org, user: { ...user, activeBrandId: brand.id }, brand };
   });
 
-  // Best-effort Twilio provisioning (do not fail signup if Twilio is misconfigured).
+  // Best-effort Twilio subaccount provisioning (do not fail signup if Twilio is misconfigured).
+  // NOTE: Phone number provisioning moved to campaign creation
   let twilioSubaccount = null;
-  let trialNumber = null;
   try {
     twilioSubaccount = await createTwilioSubaccountIfConfigured({ orgId: created.org.id, brandId: created.brand.id });
   } catch (e) {
     twilioSubaccount = { created: false, reason: 'twilio_subaccount_error', details: e && e.message };
-  }
-
-  try {
-    trialNumber = await provisionTrialSendingNumber({ orgId: created.org.id, areaCode: created.org.areaCode });
-  } catch (e) {
-    trialNumber = { created: false, reason: 'trial_number_error', details: e && e.message };
   }
 
   const token = signToken(created.user);
@@ -227,7 +209,7 @@ router.post('/signup', async (req, res) => {
     user: { id: created.user.id, username: created.user.username, email: created.user.email, orgId: created.user.orgId, activeBrandId: created.user.activeBrandId },
     organization: { id: created.org.id, name: created.org.name, areaCode: created.org.areaCode, timeZone: created.org.timeZone },
     brand: { id: created.brand.id, name: created.brand.name },
-    provisioning: { twilioSubaccount, trialNumber },
+    provisioning: { twilioSubaccount },
   });
 });
 
