@@ -26,7 +26,6 @@
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/worker-services",
-      "startCommand": "node src/campaignSender.js",
       "variables": {
         "NODE_ENV": "production",
         "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
