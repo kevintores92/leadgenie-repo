@@ -6,8 +6,8 @@
         "repo": "https://github.com/kevintores92/leadgenie-repo.git"
       },
       "rootDirectory": "my-saas-platform/apps/backend-api",
-      "buildCommand": "npm install",
-      "startCommand": "npx prisma migrate deploy && node src/server.js",
+      "builder": "DOCKERFILE",
+      "dockerfilePath": "Dockerfile",
       "variables": {
         "PORT": "5000",
         "NODE_ENV": "production",

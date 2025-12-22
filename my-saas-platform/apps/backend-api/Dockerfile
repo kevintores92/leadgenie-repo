@@ -1,23 +1,23 @@
-FROM node:18-bullseye-slim
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Install system deps required by Prisma and for building native modules
-RUN apt-get update && apt-get install -y --no-install-recommends \
-	ca-certificates \
-	openssl \
-	build-essential \
-	python3 \
- && rm -rf /var/lib/apt/lists/*
+# Copy package files and prisma schema
+COPY package*.json ./
+COPY prisma/ ./prisma/
 
-# install dependencies (including dev for prisma CLI on build)
-COPY package.json package-lock.json ./
-RUN npm ci
+# Install dependencies (postinstall will generate Prisma client and run migrations)
+RUN npm ci --omit=dev
 
-# copy app source
-COPY . ./
+# Copy source code
+COPY src/ ./src/
 
-# generate Prisma client
+ENV NODE_ENV=production
+
+# Expose port
+EXPOSE 5000
+
+CMD ["node", "src/server.js"]
 RUN npx prisma generate || true
 
 ENV PORT 4000

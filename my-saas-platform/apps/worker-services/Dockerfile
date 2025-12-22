@@ -9,9 +9,8 @@ COPY prisma/ ./prisma/
 # Install dependencies (this will also run postinstall and generate Prisma client)
 RUN npm ci --omit=dev
 
-# Copy source code and other files
+# Copy source code
 COPY src/ ./src/
-COPY db/ ./db/
 
 ENV NODE_ENV=production
 
