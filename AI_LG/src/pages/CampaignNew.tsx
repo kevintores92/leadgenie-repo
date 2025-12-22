@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet } from "lucide-react";
 import * as api from "@/lib/api";
@@ -26,7 +25,6 @@ const MONTHLY_SUBSCRIPTION = PRICING.MONTHLY_SUBSCRIPTION;
 
 export default function CampaignNew() {
   const [campaignName, setCampaignName] = useState("");
-  const [campaignType, setCampaignType] = useState("SMS");
   const [phoneNumbers, setPhoneNumbers] = useState(1000);
   const [areaCode, setAreaCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,15 +50,10 @@ export default function CampaignNew() {
   }
 
   const calculateEstimatedCost = () => {
-    let costPerContact = 0;
-    
-    // Calculate cost per contact based on campaign type
-    if (campaignType === "SMS") {
-      costPerContact = SMS_COST;
-    } else {
-      // Voice: Per-minute pricing includes AI + carrier costs
-      costPerContact = VOICE_COST_PER_MINUTE * ESTIMATED_CALL_DURATION_MINUTES;
-    }
+    // Calculate combined cost: SMS + Voice (system automatically routes based on line type)
+    const smsCost = SMS_COST;
+    const voiceCost = VOICE_COST_PER_MINUTE * ESTIMATED_CALL_DURATION_MINUTES;
+    const avgCostPerContact = (smsCost + voiceCost) / 2; // Average of both since we send to all
     
     // Apply daily campaign limit: max 2000 contacts per brand per day
     const contactsToday = Math.min(phoneNumbers, DAILY_CAMPAIGN_LIMIT);
@@ -70,10 +63,10 @@ export default function CampaignNew() {
     const numbersNeeded = Math.ceil(contactsToday / CONTACTS_PER_NUMBER);
     
     // Calculate all costs (based on today's sends only)
-    const messagingCost = contactsToday * costPerContact;
+    const messagingCost = contactsToday * avgCostPerContact;
     const phoneNumbersCost = numbersNeeded * PHONE_NUMBER_COST;
-    const validationCost = 0; // Phone validation is now free // Validate all numbers upfront
-    const dlcFees = DLC_BRAND_REGISTRATION + DLC_CAMPAIGN_REGISTRATION;
+    const validationCost = 0; // Phone validation is now free
+    const dlcFees = 0; // 10DLC covered by subscription
     
     // Calculate projected leads (based on today's sends)
     const projectedReplies = Math.round(contactsToday * ESTIMATED_REPLY_RATE);
@@ -206,64 +199,34 @@ export default function CampaignNew() {
                 </div>
               </motion.div>
 
-              {/* Campaign Type */}
+              {/* Campaign Info */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
                 className="glass-card rounded-2xl p-6 border border-blue-500/30 border-solid"
               >
-                <div className="flex items-center gap-3 mb-6">
+                <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-full bg-blue-500/30 flex items-center justify-center text-sm font-bold text-blue-400">
                     2
                   </div>
-                  <h3 className="font-semibold">Campaign Type</h3>
+                  <h3 className="font-semibold">Automated Campaign</h3>
+                </div>
+                <div className="text-sm text-muted-foreground mb-4">
+                  Every campaign automatically runs both SMS and voice outreach. Mobile numbers receive SMS first, then warm calls for replies. Landlines get voice calls immediately.
                 </div>
 
-                <Tabs value={campaignType} onValueChange={setCampaignType} className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/5 border border-white/10 p-1 rounded-lg">
-                    <TabsTrigger 
-                      value="SMS" 
-                      className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-md text-xs sm:text-sm"
-                      data-testid="tab-sms"
-                    >
-                      <MessageCircle className="w-4 h-4 mr-1" />
-                      SMS + Warm Calling
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="Cold Calling" 
-                      className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary rounded-md text-xs sm:text-sm"
-                      data-testid="tab-cold-calls"
-                    >
-                      <Phone className="w-4 h-4 mr-1" />
-                      Cold Calling
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="SMS" className="space-y-4">
-                    <div className="text-sm text-muted-foreground">
-                      SMS campaign with AI-powered responses and warm calling for engaged leads.
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="Cold Calling" className="space-y-4">
-                    <div className="text-sm text-muted-foreground">
-                      Cold calling campaigns with AI voice agents for landline optimization. <span className="font-semibold text-amber-400">Landlines only</span> - mobile numbers will be queued for SMS once 10DLC is approved.
-                    </div>
-                  </TabsContent>
-                </Tabs>
-
                 {/* Campaign Flow Info */}
-                <div className="mt-6 p-4 bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg">
+                <div className="p-4 bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg">
                   <div className="space-y-3">
                     <div className="flex items-start gap-3">
                       <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <Phone className="w-3.5 h-3.5 text-green-400" />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-green-400">AI Cold Calling Begins Immediately</div>
+                        <div className="text-sm font-semibold text-green-400">AI Voice Calls - Immediate</div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          Voice campaigns start as soon as you launch. <span className="text-amber-300 font-medium">Landlines only</span> - AI agents qualify leads in real-time via voice calls.
+                          Landline numbers receive AI voice calls immediately. Warm calls to mobile numbers that respond to SMS.
                         </div>
                       </div>
                     </div>
@@ -273,9 +236,9 @@ export default function CampaignNew() {
                         <MessageCircle className="w-3.5 h-3.5 text-blue-400" />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-blue-400">Once 10DLC is Approved: SMS Enabled</div>
+                        <div className="text-sm font-semibold text-blue-400">SMS Outreach - Delayed Start</div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          After 10DLC registration (~2-5 days), SMS campaigns activate. All positive replies are automatically nurtured until qualified.
+                          SMS to mobile numbers begins after 10DLC approval (~2-5 days). All positive replies are automatically nurtured until qualified.
                         </div>
                       </div>
                     </div>
@@ -394,7 +357,7 @@ export default function CampaignNew() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {campaignType === "SMS" ? "SMS Messages" : "AI Voice Calls"}
+                        SMS + Voice Outreach
                       </span>
                       <span className="font-medium">${costs.messagingCost}</span>
                     </div>
@@ -406,20 +369,13 @@ export default function CampaignNew() {
                       <span className="text-muted-foreground">Phone Validation & Line Type</span>
                       <span className="font-medium">${costs.validationCost}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">10DLC Registration</span>
-                      <span className="font-medium">${costs.dlcFees}</span>
-                    </div>
                     <div className="border-t border-white/10 pt-2 flex justify-between">
                       <span className="font-semibold">Total Required</span>
                       <span className="text-2xl font-bold text-green-400">${costs.total}</span>
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-3 space-y-1">
-                    {campaignType === "SMS" 
-                      ? <div>@ ${SMS_COST} per SMS (includes AI Classification + AI Replies + Carrier Fees)</div>
-                      : <div>@ ${VOICE_COST_PER_MINUTE} per minute (includes AI Inbound + AI Outbound + Carrier, ~{ESTIMATED_CALL_DURATION_MINUTES} min avg)</div>
-                    }
+                    <div>Blended rate: ${SMS_COST} per SMS + ${VOICE_COST_PER_MINUTE}/min voice (~{ESTIMATED_CALL_DURATION_MINUTES} min avg)</div>
                     <div className="text-amber-400">💡 Rotating {costs.numbersNeeded} numbers (1 per {CONTACTS_PER_NUMBER} contacts)</div>
                     <div className="text-blue-400">🔍 Auto validation: Line type (mobile/landline), carrier, active status</div>
                   </div>
