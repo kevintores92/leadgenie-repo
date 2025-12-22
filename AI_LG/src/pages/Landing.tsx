@@ -59,9 +59,24 @@ export default function Landing() {
       >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <span className="font-bold text-white text-lg">L</span>
-            </div>
+            <svg className="w-8 h-8" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="lightning-gradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#0ea5e9" />
+                  <stop offset="50%" stopColor="#3b82f6" />
+                  <stop offset="100%" stopColor="#a855f7" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M256 48 L160 280 H240 L180 464 L360 240 H280 L320 140 L256 48 Z"
+                fill="url(#lightning-gradient)"
+                stroke="white"
+                strokeWidth="8"
+                strokeLinejoin="round"
+              />
+              <rect x="40" y="240" width="100" height="32" rx="16" fill="url(#lightning-gradient)" opacity="0.8" />
+              <rect x="80" y="300" width="140" height="32" rx="16" fill="url(#lightning-gradient)" opacity="0.6" />
+            </svg>
             <span className="font-bold text-lg tracking-tight">Lead Genie</span>
           </div>
 
