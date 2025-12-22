@@ -6,6 +6,9 @@ WORKDIR /app
 # Copy everything
 COPY . .
 
+# Verify prisma folder exists
+RUN ls -la && ls -la prisma/ || echo "Prisma folder not found"
+
 # Install ALL dependencies (including dev deps needed for Prisma)
 RUN npm ci
 

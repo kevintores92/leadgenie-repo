@@ -1,3 +1,4 @@
+# Worker Services Dockerfile - Updated for Railway deployment
 FROM node:20-alpine
 
 WORKDIR /app
