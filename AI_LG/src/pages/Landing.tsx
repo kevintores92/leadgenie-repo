@@ -259,7 +259,7 @@ export default function Landing() {
                 </div>
               </div>
               <div className="text-xs text-muted-foreground bg-white/5 rounded-lg p-3">
-                💳 Billed from your wallet balance. Top up anytime via PayPal.
+                💳 Billed from your wallet balance. Top up anytime with credit/debit card.
               </div>
             </motion.div>
           </div>
