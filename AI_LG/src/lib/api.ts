@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://leadgenie-repo-production.up.railway.app';
 
 // Get auth token from localStorage or session
 function getAuthToken() {
@@ -54,14 +54,22 @@ export async function login(email: string, password: string) {
 export async function signup(email: string, password: string, businessName: string) {
   const data = await apiRequest('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ email, password, businessName }),
+    body: JSON.stringify({ 
+      username: email.split('@')[0], // Use email prefix as username
+      email, 
+      password, 
+      organizationName: businessName 
+    }),
   });
   
   if (data.token) {
     localStorage.setItem('auth_token', data.token);
   }
-  if (data.organizationId) {
-    localStorage.setItem('organization_id', data.organizationId);
+  // Backend returns user.orgId, not organizationId
+  if (data.user?.orgId) {
+    localStorage.setItem('organization_id', data.user.orgId);
+  } else if (data.organization?.id) {
+    localStorage.setItem('organization_id', data.organization.id);
   }
   
   return data;
@@ -70,6 +78,35 @@ export async function signup(email: string, password: string, businessName: stri
 export function logout() {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('organization_id');
+}
+
+// Verification APIs
+export async function sendPhoneVerification(phoneNumber: string) {
+  return await apiRequest('/verification/phone/send', {
+    method: 'POST',
+    body: JSON.stringify({ phoneNumber }),
+  });
+}
+
+export async function verifyPhone(phoneNumber: string, code: string) {
+  return await apiRequest('/verification/phone/verify', {
+    method: 'POST',
+    body: JSON.stringify({ phoneNumber, code }),
+  });
+}
+
+export async function sendEmailVerification(email: string) {
+  return await apiRequest('/verification/email/send', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyEmail(email: string, code: string) {
+  return await apiRequest('/verification/email/verify', {
+    method: 'POST',
+    body: JSON.stringify({ email, code }),
+  });
 }
 
 // Contacts
