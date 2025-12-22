@@ -115,7 +115,7 @@ export default function Landing() {
               variants={fadeInUp}
               className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto"
             >
-              Autonomous AI that calls, texts, and qualifies real estate prospects 24/7. Set it once, collect qualified leads forever.
+              Autonomous AI that calls, texts, and qualifies real estate prospects. Set it once, collect qualified leads continuously.
             </motion.p>
 
             {/* Benefits */}
@@ -150,14 +150,6 @@ export default function Landing() {
               >
                 Get Started
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-12 px-8 border-white/10 hover:bg-white/5 font-semibold"
-                data-testid="button-watch-demo"
-              >
-                Watch Demo
               </Button>
             </motion.div>
 
@@ -310,7 +302,7 @@ export default function Landing() {
                 step: "03",
                 icon: <Rocket className="w-8 h-8 text-cyan-400" />,
                 title: "Launch & Relax",
-                description: "Click launch. Our AI calls, texts, and qualifies prospects 24/7 while you rest."
+                description: "Click launch. Our AI calls, texts, and qualifies prospects while you focus on closings."
               }
             ].map((item, i) => (
               <motion.div
@@ -357,7 +349,7 @@ export default function Landing() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-12">
             {[
-              { icon: <Phone className="w-6 h-6" />, title: "AI Cold Caller", description: "Calls prospects 24/7 on landlines to discover opportunities." },
+              { icon: <Phone className="w-6 h-6" />, title: "AI Cold Caller", description: "Calls prospects on landlines to discover opportunities." },
               { icon: <MessageSquare className="w-6 h-6" />, title: "AI Texter", description: "Sends contextual SMS responses to keep conversations alive." },
               { icon: <Bot className="w-6 h-6" />, title: "AI Classifier", description: "Analyzes responses and scores lead quality in real-time." },
               { icon: <Zap className="w-6 h-6" />, title: "AI Warm Caller", description: "Calls qualified leads to close and push to your CRM." }
