@@ -469,3 +469,17 @@ enum UploadJobStatus {
   COMPLETED
   FAILED
 }
+
+model ValidatedList {
+  id               Int      @id @default(autoincrement())
+  organizationId   String
+  fileName         String
+  totalRows        Int
+  verifiedMobile   Int      @default(0)
+  verifiedLandline Int      @default(0)
+  validatedData    String   @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId])
+}

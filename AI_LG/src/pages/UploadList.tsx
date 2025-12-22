@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import * as api from "@/lib/api";
+import { validatePhoneList } from "@/lib/phoneValidation";
 
 const csvFields = [
   "propertyAddress",
@@ -42,9 +43,11 @@ export default function UploadList() {
   const [fileName, setFileName] = useState("");
   const [showMapping, setShowMapping] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [error, setError] = useState("");
   const [, navigate] = useLocation();
   const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [validationProgress, setValidationProgress] = useState(0);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,14 +76,63 @@ export default function UploadList() {
     setShowMapping(false);
     
     try {
-      await api.uploadContacts(uploadedFile);
-      setTimeout(() => {
-        navigate("/campaign/new");
-      }, 500);
+      // Step 1: Upload file to backend
+      const uploadResult = await api.uploadContacts(uploadedFile);
+      
+      // Step 2: Extract phone numbers from uploaded data
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split('\n');
+          const phoneNumbers: string[] = [];
+          
+          // Extract phone numbers from CSV (assuming phone column exists)
+          for (let i = 1; i < lines.length; i++) { // Skip header
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const columns = line.split(',');
+            // Find phone number columns (adjust based on your CSV structure)
+            const phoneMatch = columns.join(',').match(/(\+?1?\s*\(?[0-9]{3}\)?[\s.-]?[0-9]{3}[\s.-]?[0-9]{4})/g);
+            if (phoneMatch) {
+              phoneNumbers.push(...phoneMatch);
+            }
+          }
+          
+          if (phoneNumbers.length === 0) {
+            throw new Error("No phone numbers found in CSV");
+          }
+          
+          // Step 3: Validate phone numbers
+          setValidating(true);
+          const validationResult = await validatePhoneList(phoneNumbers);
+          
+          // Step 4: Save validated list
+          const savedList = await api.saveValidatedList({
+            fileName: fileName,
+            totalRows: validationResult.totalRows,
+            verifiedMobile: validationResult.verifiedMobile,
+            verifiedLandline: validationResult.verifiedLandline,
+            validatedData: validationResult.results
+          });
+          
+          // Step 5: Navigate to campaign page with list ID
+          navigate(`/campaign/new?listId=${savedList.id}`);
+          
+        } catch (err: any) {
+          setError(err.message || "Failed to process contacts");
+          setShowMapping(true);
+          setUploading(false);
+          setValidating(false);
+        }
+      };
+      
+      reader.readAsText(uploadedFile);
+      
     } catch (err: any) {
       setError(err.message || "Failed to upload contacts");
       setShowMapping(true);
-    } finally {
       setUploading(false);
     }
   };

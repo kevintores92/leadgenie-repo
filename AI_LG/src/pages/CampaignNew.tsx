@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet } from "lucide-react";
+import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet, Upload, FileText } from "lucide-react";
 import * as api from "@/lib/api";
 import { PRICING } from "@/config/pricing";
+import { WalletFundingModal } from "@/components/WalletFundingModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 // Pricing constants (imported from centralized config)
 const SMS_COST = PRICING.SMS_COST;
@@ -25,17 +27,57 @@ const MONTHLY_SUBSCRIPTION = PRICING.MONTHLY_SUBSCRIPTION;
 
 export default function CampaignNew() {
   const [campaignName, setCampaignName] = useState("");
-  const [phoneNumbers, setPhoneNumbers] = useState(1000);
   const [areaCode, setAreaCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [error, setError] = useState("");
   const [, navigate] = useLocation();
+  
+  // List/Upload state
+  const [listData, setListData] = useState<{
+    totalRows: number;
+    verifiedMobile: number;
+    verifiedLandline: number;
+    listName: string;
+  } | null>(null);
+  const [showUploadArea, setShowUploadArea] = useState(true);
+  
+  // Modals
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showLaunchModal, setShowLaunchModal] = useState(false);
 
   useEffect(() => {
     loadWalletBalance();
+    
+    // Check URL params for listId from upload page
+    const params = new URLSearchParams(window.location.search);
+    const listId = params.get('listId');
+    
+    if (listId) {
+      loadListData(listId);
+    }
   }, []);
+  
+  async function loadListData(listId: string) {
+    try {
+      const data = await api.getValidatedList(listId);
+      setListData({
+        totalRows: data.totalRows,
+        verifiedMobile: data.verifiedMobile,
+        verifiedLandline: data.verifiedLandline,
+        listName: data.fileName
+      });
+      setShowUploadArea(false);
+      // Auto-fill campaign name from list name
+      if (!campaignName) {
+        setCampaignName(data.fileName.replace('.csv', ''));
+      }
+    } catch (err) {
+      console.error('Failed to load list data:', err);
+      setError('Failed to load uploaded list');
+    }
+  }
 
   async function loadWalletBalance() {
     try {
@@ -50,41 +92,70 @@ export default function CampaignNew() {
   }
 
   const calculateEstimatedCost = () => {
-    // Calculate combined cost: SMS + Voice (system automatically routes based on line type)
-    const smsCost = SMS_COST;
-    const voiceCost = VOICE_COST_PER_MINUTE * ESTIMATED_CALL_DURATION_MINUTES;
-    const avgCostPerContact = (smsCost + voiceCost) / 2; // Average of both since we send to all
+    if (!listData) {
+      return {
+        smsCost: "0.00",
+        warmCallCost: "0.00",
+        smsWarmTotal: "0.00",
+        coldCallCost: "0.00",
+        coldCallTotal: "0.00",
+        smsPhoneNumbers: 0,
+        voicePhoneNumbers: 0,
+        smsPhoneNumbersCost: "0.00",
+        voicePhoneNumbersCost: "0.00",
+        total: "0.00",
+        projectedReplies: 0,
+        projectedPositiveReplies: 0,
+        projectedWarmCalls: 0
+      };
+    }
+
+    const { verifiedMobile, verifiedLandline } = listData;
     
-    // Apply daily campaign limit: max 2000 contacts per brand per day
-    const contactsToday = Math.min(phoneNumbers, DAILY_CAMPAIGN_LIMIT);
-    const contactsQueuedForLater = Math.max(0, phoneNumbers - DAILY_CAMPAIGN_LIMIT);
+    // SMS + Warm Calling Campaign Costs
+    const smsCost = verifiedMobile * SMS_COST; // $0.02 per SMS
+    const replyRate = 0.25; // 25% reply rate
+    const positiveRate = 0.15; // 15% of replies are positive
+    const warmCallCount = Math.round(verifiedMobile * replyRate * positiveRate);
+    const warmCallCost = warmCallCount * VOICE_COST_PER_MINUTE; // $0.20/min per warm call
     
-    // Calculate number of phone numbers needed for rotation (based on today's sends only)
-    const numbersNeeded = Math.ceil(contactsToday / CONTACTS_PER_NUMBER);
+    // SMS phone numbers needed (1 per 250 contacts)
+    const smsPhoneNumbers = Math.ceil(verifiedMobile / CONTACTS_PER_NUMBER);
+    const smsPhoneNumbersCost = smsPhoneNumbers * PHONE_NUMBER_COST;
+    const smsWarmTotal = smsCost + warmCallCost + smsPhoneNumbersCost;
     
-    // Calculate all costs (based on today's sends only)
-    const messagingCost = contactsToday * avgCostPerContact;
-    const phoneNumbersCost = numbersNeeded * PHONE_NUMBER_COST;
-    const validationCost = 0; // Phone validation is now free
-    const dlcFees = 0; // 10DLC covered by subscription
+    // Cold Calling Campaign Costs  
+    const connectRate = 0.15; // 10-25%, using 15% as middle
+    const avgTalkTime = 4; // 3-5 minutes average
+    const connectedCalls = Math.round(verifiedLandline * connectRate);
+    const coldCallMinutes = connectedCalls * avgTalkTime;
+    const coldCallCost = coldCallMinutes * VOICE_COST_PER_MINUTE;
     
-    // Calculate projected leads (based on today's sends)
-    const projectedReplies = Math.round(contactsToday * ESTIMATED_REPLY_RATE);
-    const projectedHotLeads = Math.round(contactsToday * ESTIMATED_HOT_LEAD_RATE);
+    // Voice phone numbers needed
+    const voicePhoneNumbers = Math.ceil(verifiedLandline / CONTACTS_PER_NUMBER);
+    const voicePhoneNumbersCost = voicePhoneNumbers * PHONE_NUMBER_COST;
+    const coldCallTotal = coldCallCost + voicePhoneNumbersCost;
     
-    const totalCost = messagingCost + phoneNumbersCost + validationCost + dlcFees;
+    // Projected Results
+    const projectedReplies = Math.round(verifiedMobile * replyRate);
+    const projectedPositiveReplies = Math.round(projectedReplies * positiveRate);
+    
+    const totalCost = smsWarmTotal + coldCallTotal;
     
     return {
-      messagingCost: messagingCost.toFixed(2),
-      phoneNumbersCost: phoneNumbersCost.toFixed(2),
-      validationCost: validationCost.toFixed(2),
-      dlcFees: dlcFees.toFixed(2),
+      smsCost: smsCost.toFixed(2),
+      warmCallCost: warmCallCost.toFixed(2),
+      smsWarmTotal: smsWarmTotal.toFixed(2),
+      coldCallCost: coldCallCost.toFixed(2),
+      coldCallTotal: coldCallTotal.toFixed(2),
+      smsPhoneNumbers,
+      voicePhoneNumbers,
+      smsPhoneNumbersCost: smsPhoneNumbersCost.toFixed(2),
+      voicePhoneNumbersCost: voicePhoneNumbersCost.toFixed(2),
       total: totalCost.toFixed(2),
-      numbersNeeded,
       projectedReplies,
-      projectedHotLeads,
-      contactsToday,
-      contactsQueuedForLater
+      projectedPositiveReplies,
+      projectedWarmCalls: warmCallCount
     };
   };
 
@@ -97,9 +168,16 @@ export default function CampaignNew() {
       return;
     }
     
+    if (!listData) {
+      setError("Please upload a contact list first");
+      return;
+    }
+    
     const costs = calculateEstimatedCost();
+    
+    // Show modal if insufficient balance
     if (walletBalance < parseFloat(costs.total)) {
-      setError("Insufficient wallet balance. Please top up your account.");
+      setShowLaunchModal(true);
       return;
     }
     
@@ -108,8 +186,8 @@ export default function CampaignNew() {
     try {
       await api.createCampaign({
         name: campaignName,
-        type: campaignType,
-        estimatedContacts: phoneNumbers,
+        mobileCount: listData.verifiedMobile,
+        landlineCount: listData.verifiedLandline,
         areaCode: areaCode
       });
       navigate("/dashboard");
@@ -144,6 +222,61 @@ export default function CampaignNew() {
           {/* Left Panel - Campaign Configuration */}
           <div className="lg:col-span-2 space-y-6">
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* List Selection/Upload Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="glass-card rounded-2xl p-6 border border-purple-500/30"
+              >
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-sm font-bold text-purple-400">
+                    0
+                  </div>
+                  <h3 className="font-semibold">Contact List</h3>
+                </div>
+
+                {listData ? (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <FileText className="w-5 h-5 text-green-400" />
+                      <div>
+                        <p className="font-semibold text-green-400">{listData.listName}</p>
+                        <p className="text-xs text-muted-foreground">List uploaded and verified</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                      <div className="bg-white/5 rounded p-2">
+                        <div className="text-muted-foreground text-xs">Total</div>
+                        <div className="font-bold">{listData.totalRows.toLocaleString()}</div>
+                      </div>
+                      <div className="bg-blue-500/10 rounded p-2">
+                        <div className="text-blue-400 text-xs">Mobile</div>
+                        <div className="font-bold text-blue-400">{listData.verifiedMobile.toLocaleString()}</div>
+                      </div>
+                      <div className="bg-purple-500/10 rounded p-2">
+                        <div className="text-purple-400 text-xs">Landline</div>
+                        <div className="font-bold text-purple-400">{listData.verifiedLandline.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                    <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-4">No list uploaded yet</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate("/upload")}
+                      className="border-white/10 hover:bg-white/5"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Contact List
+                    </Button>
+                  </div>
+                )}
+              </motion.div>
+
               {/* Campaign Info */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -296,88 +429,101 @@ export default function CampaignNew() {
               </h3>
 
               <div className="space-y-6">
-                {/* Wallet Balance */}
-                <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4">
+                {/* Wallet Balance - Fully Clickable */}
+                <button
+                  onClick={() => setShowWalletModal(true)}
+                  className="w-full bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4 hover:border-green-500/50 transition-colors text-left"
+                >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-muted-foreground flex items-center gap-2">
                       <Wallet className="w-4 h-4" />
                       Wallet Balance
                     </span>
-                    <button
-                      onClick={loadWalletBalance}
-                      disabled={loadingWallet}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      {loadingWallet ? 'Loading...' : 'Reload'}
-                    </button>
+                    <span className="text-xs text-primary">Click to Add Funds</span>
                   </div>
                   <div className="text-2xl font-bold text-green-400">
-                    ${walletBalance.toFixed(2)}
+                    {loadingWallet ? 'Loading...' : `$${walletBalance.toFixed(2)}`}
                   </div>
-                </div>
+                </button>
 
-                {/* Recipients */}
-                <div className="border-b border-white/5 pb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      Recipients
-                    </span>
-                    <span className="font-bold text-lg">{phoneNumbers.toLocaleString()}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="100"
-                    max="10000"
-                    step="100"
-                    value={phoneNumbers}
-                    onChange={(e) => setPhoneNumbers(Number(e.target.value))}
-                    data-testid="slider-phone-numbers"
-                    className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                    <span>100</span>
-                    <span>10,000</span>
-                  </div>
-                  {costs.contactsQueuedForLater > 0 && (
-                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                      <div className="text-xs text-blue-300 space-y-1">
-                        <div className="font-semibold">📅 Daily Limit Applied</div>
-                        <div>• Sending today: <span className="text-white font-medium">{costs.contactsToday.toLocaleString()}</span></div>
-                        <div>• Queued for tomorrow: <span className="text-white font-medium">{costs.contactsQueuedForLater.toLocaleString()}</span></div>
-                        <div className="text-blue-200 mt-2">Campaign sending is limited to {DAILY_CAMPAIGN_LIMIT.toLocaleString()} contacts/day per brand to maintain deliverability. Manual SMS is not affected.</div>
+                {/* List Stats */}
+                {listData && (
+                  <div className="border-b border-white/5 pb-4">
+                    <div className="text-sm text-muted-foreground mb-3">Uploaded List</div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Rows</span>
+                        <span className="font-medium">{listData.totalRows.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <MessageCircle className="w-3 h-3" /> Verified Mobile
+                        </span>
+                        <span className="font-medium text-green-400">{listData.verifiedMobile.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> Verified Landline
+                        </span>
+                        <span className="font-medium text-blue-400">{listData.verifiedLandline.toLocaleString()}</span>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Estimated Cost */}
                 <div className="border-b border-white/5 pb-4">
-                  <div className="text-sm text-muted-foreground mb-3">Cost Breakdown</div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        SMS + Voice Outreach
-                      </span>
-                      <span className="font-medium">${costs.messagingCost}</span>
+                  <div className="text-sm text-muted-foreground mb-3">Estimated Campaign Cost</div>
+                  <div className="space-y-4 text-sm">
+                    {/* SMS + Warm Calling Campaign */}
+                    <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2 text-blue-400 font-semibold text-xs mb-2">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        SMS + Warm Calling Campaign
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">SMS Messages</span>
+                        <span>${costs.smsCost}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Warm Calls ({costs.projectedWarmCalls} expected)</span>
+                        <span>${costs.warmCallCost}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Phone Numbers ({costs.smsPhoneNumbers}x)</span>
+                        <span>${costs.smsPhoneNumbersCost}</span>
+                      </div>
+                      <div className="border-t border-blue-500/20 pt-2 flex justify-between font-semibold">
+                        <span>Subtotal</span>
+                        <span className="text-blue-400">${costs.smsWarmTotal}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Phone Numbers ({costs.numbersNeeded}x)</span>
-                      <span className="font-medium">${costs.phoneNumbersCost}</span>
+                    
+                    {/* Cold Calling Campaign */}
+                    <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2 text-purple-400 font-semibold text-xs mb-2">
+                        <Phone className="w-3.5 h-3.5" />
+                        Cold Calling Campaign
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Voice Calls (15% connect rate)</span>
+                        <span>${costs.coldCallCost}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Phone Numbers ({costs.voicePhoneNumbers}x)</span>
+                        <span>${costs.voicePhoneNumbersCost}</span>
+                      </div>
+                      <div className="border-t border-purple-500/20 pt-2 flex justify-between font-semibold">
+                        <span>Subtotal</span>
+                        <span className="text-purple-400">${costs.coldCallTotal}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Phone Validation & Line Type</span>
-                      <span className="font-medium">${costs.validationCost}</span>
-                    </div>
+                    
+                    {/* Total */}
                     <div className="border-t border-white/10 pt-2 flex justify-between">
                       <span className="font-semibold">Total Required</span>
                       <span className="text-2xl font-bold text-green-400">${costs.total}</span>
                     </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-3 space-y-1">
-                    <div>Blended rate: ${SMS_COST} per SMS + ${VOICE_COST_PER_MINUTE}/min voice (~{ESTIMATED_CALL_DURATION_MINUTES} min avg)</div>
-                    <div className="text-amber-400">💡 Rotating {costs.numbersNeeded} numbers (1 per {CONTACTS_PER_NUMBER} contacts)</div>
-                    <div className="text-blue-400">🔍 Auto validation: Line type (mobile/landline), carrier, active status</div>
                   </div>
                 </div>
 
@@ -393,19 +539,23 @@ export default function CampaignNew() {
 
                 {/* Projected Results */}
                 <div className="border-b border-white/5 pb-4">
-                  <div className="text-sm text-muted-foreground mb-3">Projected Results (Today)</div>
+                  <div className="text-sm text-muted-foreground mb-3">Projected Results</div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Expected Replies</span>
                       <span className="font-medium text-blue-400">{costs.projectedReplies.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Projected Hot Leads</span>
-                      <span className="font-medium text-green-400">{costs.projectedHotLeads.toLocaleString()}</span>
+                      <span className="text-muted-foreground">Positive Replies</span>
+                      <span className="font-medium text-green-400">{costs.projectedPositiveReplies.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Warm Calls</span>
+                      <span className="font-medium text-amber-400">{costs.projectedWarmCalls.toLocaleString()}</span>
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    Based on {costs.contactsToday.toLocaleString()} contacts sending today: {(ESTIMATED_REPLY_RATE * 100).toFixed(0)}% reply rate, {(ESTIMATED_HOT_LEAD_RATE * 100).toFixed(0)}% hot leads
+                    Based on 25% reply rate, 15% positive replies from SMS campaign
                   </div>
                 </div>
 
@@ -427,36 +577,88 @@ export default function CampaignNew() {
                   </div>
                 )}
 
-                {/* Wallet Funding Info */}
-                <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-4">
-                  <div className="text-sm font-semibold text-blue-400 mb-2">💳 Wallet Funding Guide</div>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div>• Campaign requires ${costs.total} total</div>
-                    <div>• Current balance: ${walletBalance.toFixed(2)}</div>
-                    <div>• Shortfall: ${Math.max(0, parseFloat(costs.total) - walletBalance).toFixed(2)}</div>
-                  </div>
-                </div>
 
-                {/* Est. Time */}
-                <div className="border-b border-white/5 pb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Est. Time
-                    </span>
-                    <span className="font-semibold">~{Math.ceil(phoneNumbers / 60)} mins</span>
-                  </div>
-                </div>
 
-                {/* Info Box */}
-                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-xs text-yellow-200">
-                  ⚠️ Ensure your message content aligns with your declared 10DLC use case to avoid carrier filtering.
-                </div>
+
+
+
               </div>
             </div>
           </motion.div>
         </div>
       </div>
+      
+      {/* Wallet Funding Modal */}
+      <WalletFundingModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        currentBalance={walletBalance}
+        suggestedAmount={Math.max(0, parseFloat(costs.total) - walletBalance)}
+        onSuccess={loadWalletBalance}
+      />
+      
+      {/* Launch Confirmation Modal */}
+      <Dialog open={showLaunchModal} onOpenChange={setShowLaunchModal}>
+        <DialogContent className="glass-card border-white/10 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-400">
+              <Wallet className="w-5 h-5" />
+              Insufficient Balance
+            </DialogTitle>
+            <DialogDescription>
+              Your wallet balance is lower than the estimated campaign cost.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Campaign Cost:</span>
+                  <span className="font-semibold">${costs.total}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Balance:</span>
+                  <span className="font-semibold text-green-400">${walletBalance.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-amber-500/30 pt-2 flex justify-between">
+                  <span className="text-amber-300 font-semibold">Shortfall:</span>
+                  <span className="font-bold text-amber-400">${Math.max(0, parseFloat(costs.total) - walletBalance).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-sm text-muted-foreground">
+              We recommend reloading your wallet now. However, you can still create the campaign - it won't send messages until your balance is sufficient.
+            </p>
+            
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowLaunchModal(false);
+                  handleSubmit(new Event('submit') as any);
+                }}
+                className="flex-1 border-white/10 hover:bg-white/5"
+              >
+                Create Campaign Anyway
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setShowLaunchModal(false);
+                  setShowWalletModal(true);
+                }}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Reload Wallet
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

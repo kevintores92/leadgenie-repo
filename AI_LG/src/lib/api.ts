@@ -206,3 +206,25 @@ export async function updateBusinessInfo(data: {
 export async function getBusinessInfo() {
   return apiRequest('/organization/business-info');
 }
+
+// Validated Lists
+export async function saveValidatedList(data: {
+  fileName: string;
+  totalRows: number;
+  verifiedMobile: number;
+  verifiedLandline: number;
+  validatedData: any[];
+}) {
+  return apiRequest('/lists/validated', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getValidatedList(listId: string) {
+  return apiRequest(`/lists/validated/${listId}`);
+}
+
+export async function getValidatedLists() {
+  return apiRequest('/lists/validated');
+}
