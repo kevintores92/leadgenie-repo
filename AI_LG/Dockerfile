@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Clean install dependencies
-RUN npm ci --omit=dev --ignore-scripts
+# Clean install all dependencies (including dev dependencies needed for build)
+RUN npm ci
 
 # Copy source files
 COPY . .
