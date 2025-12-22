@@ -15,15 +15,18 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Production stage - use Node to serve with 'serve'
+FROM node:20-alpine
 
-# Copy built files to nginx
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-# Copy nginx configuration if you have one
-# COPY nginx.conf /etc/nginx/nginx.conf
+# Install serve globally for serving static files
+RUN npm install -g serve
 
-EXPOSE 80
+# Copy built files from builder stage
+COPY --from=builder /app/dist ./dist
 
-CMD ["nginx", "-g", "daemon off;"]
+# Expose port (Railway sets PORT env var)
+EXPOSE 3000
+
+CMD ["serve", "-s", "dist", "-l", "3000"]
