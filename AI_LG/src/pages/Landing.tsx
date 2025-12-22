@@ -246,7 +246,7 @@ export default function Landing() {
                   <MessageSquare className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="font-medium">SMS Messages</div>
-                    <div className="text-sm text-muted-foreground">$0.02/SMS (includes AI classification + replies)</div>
+                    <div className="text-sm text-muted-foreground">$0.025/SMS Includes SMS Service($0.01), Carrier Fees($0.005), AI Classification & AI Replies ($0.005), Phone Verification & A portion goes to Lead Genie.</div>
                   </div>
                 </div>
               </div>

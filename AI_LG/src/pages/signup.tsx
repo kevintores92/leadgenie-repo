@@ -456,7 +456,7 @@ export default function SignUp() {
                     <div className="space-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <MessageSquare className="w-4 h-4 text-blue-400" />
-                        <span>SMS: $0.02 each (includes AI classification + replies)</span>
+                        <span>SMS: $0.025 each Includes SMS Service($0.01), Carrier Fees($0.005), AI Classification & AI Replies ($0.005), Phone Verification & A portion goes to Lead Genie.</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-blue-400" />

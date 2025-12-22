@@ -72,6 +72,8 @@ model Brand {
   name                 String
   twilioSubaccountSid  String?
   subaccountAuthToken  String?
+  twilioTwiMLAppSid    String?
+  areaCode             String?
   callingMode          String
   aiVoicePlatformUrl   String?
   createdAt            DateTime @default(now())

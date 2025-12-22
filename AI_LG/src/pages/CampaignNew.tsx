@@ -113,7 +113,7 @@ export default function CampaignNew() {
     const { verifiedMobile, verifiedLandline } = listData;
     
     // SMS + Warm Calling Campaign Costs
-    const smsCost = verifiedMobile * SMS_COST; // $0.02 per SMS
+    const smsCost = verifiedMobile * SMS_COST; // $0.025 per SMS
     const replyRate = 0.25; // 25% reply rate
     const positiveRate = 0.15; // 15% of replies are positive
     const warmCallCount = Math.round(verifiedMobile * replyRate * positiveRate);
