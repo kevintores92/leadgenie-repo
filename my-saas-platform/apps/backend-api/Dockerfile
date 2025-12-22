@@ -2,17 +2,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files first
-COPY package*.json ./
-
-# Copy prisma schema
-COPY prisma ./prisma
-
-# Install dependencies and generate Prisma client
-RUN npm ci --omit=dev
-
-# Copy everything else
+# Copy everything
 COPY . .
+
+# Install dependencies (postinstall will generate Prisma client and run migrations)
+RUN npm ci --omit=dev
 
 ENV NODE_ENV=production
 
