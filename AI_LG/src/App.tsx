@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
-import SignUp from "@/pages/SignUp";
+import SignUp from "@/pages/signup";
 import BusinessInfo from "@/pages/BusinessInfo";
 import UploadList from "@/pages/UploadList";
 import CampaignNew from "@/pages/CampaignNew";

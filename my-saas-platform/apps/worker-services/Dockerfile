@@ -1,18 +1,17 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy the entire repo
-COPY . ./
+# Copy package files
+COPY package*.json ./
+COPY prisma ./prisma/
 
-# Install root dependencies
+# Install dependencies (this will also run postinstall and generate Prisma client)
 RUN npm ci --omit=dev
 
-# Install worker-services dependencies (postinstall generates Prisma client)
-RUN cd my-saas-platform/apps/worker-services && npm ci --omit=dev
+# Copy the rest of the application
+COPY . .
 
 ENV NODE_ENV=production
-
-WORKDIR /app/my-saas-platform/apps/worker-services
 
 CMD ["node", "src/campaignSender.js"]
