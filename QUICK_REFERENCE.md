@@ -148,7 +148,7 @@ TWILIO_MASTER_ACCOUNT_SID=AC...
 TWILIO_MASTER_AUTH_TOKEN=token...
 
 # App
-APP_URL=https://your-domain.com
+APP_URL=https://api.leadgenie.online
 ```
 
 ## Deployment Steps (5 minutes)

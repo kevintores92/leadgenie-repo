@@ -54,7 +54,7 @@
         "NODE_ENV": "production",
         "VITE_DEV_AUTH_EMAIL": "admin@example.com",
         "VITE_DEV_AUTH_PASSWORD": "supersecret",
-        "VITE_API_URL": "https://backend-production-fc9c.up.railway.app"
+        "VITE_API_URL": "https://api.leadgenie.online"
       }
     },
     "postgres": {

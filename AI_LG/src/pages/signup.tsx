@@ -16,14 +16,11 @@ declare global {
 }
 
 export default function SignUp() {
-  const [step, setStep] = useState<"account" | "verify" | "subscription">("account");
-  const [verificationType, setVerificationType] = useState<"phone" | "email">("email");
+  const [step, setStep] = useState<"account" | "subscription">("account");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -45,57 +42,11 @@ export default function SignUp() {
       return;
     }
     
-    // Move to verification step
-    setLoading(true);
-    try {
-      if (verificationType === "phone") {
-        if (!phone) {
-          setError("Phone number is required");
-          setLoading(false);
-          return;
-        }
-        await api.sendPhoneVerification(phone);
-      } else {
-        await api.sendEmailVerification(email);
-      }
-      setStep("verify");
-    } catch (err: any) {
-      setError(err.message || "Failed to send verification code");
-    } finally {
-      setLoading(false);
-    }
+    // Skip verification and go directly to subscription
+    setStep("subscription");
   };
 
-  const handleVerificationSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      if (verificationType === "phone") {
-        const result = await api.verifyPhone(phone, verificationCode);
-        if (!result.verified) {
-          setError("Invalid verification code");
-          setLoading(false);
-          return;
-        }
-      } else {
-        const result = await api.verifyEmail(email, verificationCode);
-        if (!result.verified) {
-          setError("Invalid verification code");
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // Verification successful, move to subscription
-      setStep("subscription");
-    } catch (err: any) {
-      setError(err.message || "Verification failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // verification removed
 
   const handleSubscriptionApproval = async (subscriptionId: string) => {
     setLoading(true);
@@ -206,49 +157,7 @@ export default function SignUp() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-sm font-medium">
-                    Phone Number (Optional - for SMS verification)
-                  </Label>
-                  <Input
-                    id="phone"
-                    data-testid="input-phone"
-                    type="tel"
-                    placeholder="+1234567890"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
-                  />
-                </div>
-
-                {/* Verification Method Toggle */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Verify via</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={verificationType === "email" ? "default" : "outline"}
-                      onClick={() => setVerificationType("email")}
-                      className="flex-1"
-                    >
-                      Email
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={verificationType === "phone" ? "default" : "outline"}
-                      onClick={() => setVerificationType("phone")}
-                      disabled={!phone}
-                      className="flex-1"
-                    >
-                      SMS
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {verificationType === "phone" 
-                      ? "We'll send a verification code to your phone" 
-                      : "We'll send a verification code to your email"}
-                  </p>
-                </div>
+                {/* Phone/email verification removed */}
 
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-sm font-medium">
@@ -310,75 +219,6 @@ export default function SignUp() {
                 By signing up, you agree to our Terms of Service
               </p>
             </div>
-          ) : step === "verify" ? (
-            // Step 2: Verification
-            <div className="glass-card p-8 rounded-2xl max-w-md mx-auto">
-              <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500/20 to-blue-600/20 border border-green-500/30 flex items-center justify-center">
-                  <Shield className="w-8 h-8 text-green-400" />
-                </div>
-              </div>
-
-              <h1 className="text-3xl font-bold text-center mb-2">Verify Your {verificationType === "phone" ? "Phone" : "Email"}</h1>
-              <p className="text-center text-muted-foreground mb-8">
-                Enter the verification code sent to<br />
-                <span className="font-semibold">{verificationType === "phone" ? phone : email}</span>
-              </p>
-
-              {error && (
-                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-                  {error}
-                </div>
-              )}
-
-              <form onSubmit={handleVerificationSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="code" className="text-sm font-medium">
-                    Verification Code
-                  </Label>
-                  <Input
-                    id="code"
-                    type="text"
-                    placeholder="000000"
-                    maxLength={6}
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                    required
-                    className="glass-card border-white/10 focus:border-primary focus:bg-white/5 text-center text-2xl tracking-widest"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={loading || verificationCode.length !== 6}
-                  className="w-full h-11 bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 font-semibold"
-                >
-                  {loading ? "Verifying..." : "Verify & Continue"}
-                </Button>
-
-                <div className="flex items-center justify-between text-sm">
-                  <button
-                    type="button"
-                    onClick={() => setStep("account")}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAccountSubmit}
-                    disabled={loading}
-                    className="text-primary hover:text-primary/80"
-                  >
-                    Resend Code
-                  </button>
-                </div>
-              </form>
-
-              <p className="text-center text-xs text-muted-foreground mt-6">
-                Code expires in 10 minutes
-              </p>
-            </div>
           ) : (
             // Step 3: Subscription Selection
             <div className="space-y-6">
@@ -388,7 +228,7 @@ export default function SignUp() {
                 className="text-center"
               >
                 <button
-                  onClick={() => setStep("verify")}
+                  onClick={() => setStep("account")}
                   className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-2"
                 >
                   ← Back
