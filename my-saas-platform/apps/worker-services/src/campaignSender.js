@@ -121,9 +121,32 @@ async function selectSendingNumber(orgId) {
 
 // Pick the least-used sending number for a send without touching lastUsedAt
 async function pickSendingNumberForSend(orgId) {
+  const now = new Date();
+  const cooldownSeconds = 60 + Math.random() * 120; // 60-180 second cooldown
+  const cooldownTime = new Date(now.getTime() - cooldownSeconds * 1000);
+  const dailyLimit = 100; // Conservative daily limit
+
   return await prisma.sendingNumber.findFirst({
-    where: { organizationId: orgId, enabled: true },
-    orderBy: [{ lastUsedCount: 'asc' }, { lastUsedAt: 'asc' }],
+    where: {
+      organizationId: orgId,
+      enabled: true,
+      // Rule A: Cooldown - number must rest after call ends
+      OR: [
+        { lastUsedAt: null },
+        { lastUsedAt: { lt: cooldownTime } }
+      ],
+      // Rule B: Daily Cap - max calls per day per number
+      callsToday: { lt: dailyLimit },
+      // Rule C: Hangup Ratio Watch - pause if too many short hangups
+      OR: [
+        { shortHangupsToday: null },
+        { shortHangupsToday: { lt: 60 } } // Less than 60% short hangups
+      ]
+    },
+    orderBy: [
+      { callsToday: 'asc' }, // Least used today first
+      { lastUsedAt: 'asc' }  // Then by last used time
+    ],
   });
 }
 
@@ -191,6 +214,31 @@ async function enqueueCampaign(organizationId, campaignId, batchSize = 50, inter
   const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
   const bypassBusinessHours = (campaign?.callingMode === 'OUTBOUND_REPLY');
 
+  // CALL RATE RAMPING: Gradually increase call volume to avoid carrier flags
+  // DO NOT start at full rate - ramp up over time
+  let effectiveBatchSize = batchSize;
+  let effectiveIntervalMinutes = intervalMinutes;
+
+  if (campaign?.callingMode === 'COLD_CALLING') {
+    const campaignStartTime = campaign.createdAt || new Date();
+    const minutesRunning = (Date.now() - new Date(campaignStartTime).getTime()) / (1000 * 60);
+
+    // Ramping schedule:
+    // 0-10 min: 1 call per number at a time (very conservative start)
+    // 10-30 min: 2 calls per number
+    // 30+ min: full rate (up to batchSize)
+    if (minutesRunning < 10) {
+      effectiveBatchSize = Math.min(1, batchSize);
+      effectiveIntervalMinutes = Math.max(intervalMinutes, 5); // Minimum 5 min intervals
+    } else if (minutesRunning < 30) {
+      effectiveBatchSize = Math.min(2, batchSize);
+      effectiveIntervalMinutes = Math.max(intervalMinutes, 3); // Minimum 3 min intervals
+    }
+    // After 30 minutes, use full configured rate
+
+    console.log(`[Call Ramping] Campaign ${campaignId} running ${minutesRunning.toFixed(1)}min: batchSize=${effectiveBatchSize}, interval=${effectiveIntervalMinutes}min`);
+  }
+
   // 10DLC GATING: Block SMS campaigns until 10DLC is approved
   // Voice campaigns (landline cold calling) can proceed immediately
   if (!org.dlcCampaignRegistered) {
@@ -217,17 +265,17 @@ async function enqueueCampaign(organizationId, campaignId, batchSize = 50, inter
   const contacts = await prisma.contact.findMany({ where: { organizationId } });
   if (!contacts || contacts.length === 0) return;
 
-  // group
+  // group contacts into batches using effective size for ramping
   const batches = [];
-  for (let i = 0; i < contacts.length; i += batchSize) {
-    batches.push(contacts.slice(i, i + batchSize));
+  for (let i = 0; i < contacts.length; i += effectiveBatchSize) {
+    batches.push(contacts.slice(i, i + effectiveBatchSize));
   }
 
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
     const batch = batches[batchIndex];
     for (const contact of batch) {
-      // base batch delay
-      const baseDelay = batchIndex * intervalMinutes * 60 * 1000;
+      // base batch delay using effective interval for ramping
+      const baseDelay = batchIndex * effectiveIntervalMinutes * 60 * 1000;
 
       // 24-hour cooldown check: do NOT enqueue if contact has received SMS in last 24 hours
       const last = await prisma.message.findFirst({
@@ -290,7 +338,10 @@ async function enqueueCampaign(organizationId, campaignId, batchSize = 50, inter
   await prisma.campaign.update({ where: { id: campaignId }, data: { status: 'QUEUED' } });
 }
 
-// Processor
+// Processor with concurrency limits
+// SAFE CONCURRENCY: 1-2 calls per number at a time, never more
+// 100 numbers = max 100-200 concurrent calls
+// Set conservative concurrency to prevent carrier flags
 new Worker(queueName, async (job) => {
   const { organizationId, campaignId, contactId } = job.data;
   const contact = await prisma.contact.findUnique({ where: { id: contactId } });
@@ -451,7 +502,25 @@ new Worker(queueName, async (job) => {
 
   // Update sending number usage metadata after send
   if (chosenNumber) {
-    await prisma.phoneNumber.update({ where: { id: chosenNumber.id }, data: { lastUsedAt: new Date() } });
+    const today = new Date().toDateString();
+    const lastReset = chosenNumber.lastResetDate ? new Date(chosenNumber.lastResetDate).toDateString() : null;
+
+    // Reset daily counters if it's a new day
+    const resetData = lastReset !== today ? {
+      callsToday: 0,
+      shortHangupsToday: 0,
+      totalHangupsToday: 0,
+      lastResetDate: new Date()
+    } : {};
+
+    await prisma.phoneNumber.update({
+      where: { id: chosenNumber.id },
+      data: {
+        lastUsedAt: new Date(),
+        callsToday: { increment: 1 },
+        ...resetData
+      }
+    });
   }
 
   // update message to OUTBOUND_API

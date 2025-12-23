@@ -305,6 +305,11 @@ model SendingNumber {
   enabled        Boolean  @default(true)
   lastUsedAt     DateTime?
   lastUsedCount  Int      @default(0)
+  // Number rotation fields
+  callsToday         Int @default(0)
+  shortHangupsToday  Int @default(0)
+  totalHangupsToday  Int @default(0)
+  lastResetDate      DateTime?
   createdAt      DateTime @default(now())
 }
 
@@ -484,4 +489,107 @@ model ValidatedList {
   updatedAt        DateTime @updatedAt
 
   @@index([organizationId])
+}
+
+// TCPA Compliance Audit Logs
+model CallEventLog {
+  id               String   @id @default(cuid())
+  organizationId   String
+  userId           String?
+  leadId           String   // Contact ID
+  phoneNumber      String
+  phoneType        String   // 'mobile' or 'landline'
+  callType         String   // 'cold' or 'warm'
+  numberUsed       String   // Sending number used
+  timestampStart   DateTime
+  timestampEnd     DateTime?
+  callOutcome      String   // 'completed', 'hangup', 'no_answer', 'busy', etc.
+  optOutTriggered  Boolean  @default(false)
+  recordingUrl     String?
+  transcript       String?
+  createdAt        DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([phoneNumber])
+}
+
+model ConsentLedger {
+  id             String   @id @default(cuid())
+  leadId         String   // Contact ID
+  organizationId String
+  consentType    String   // 'tcpacompliance', 'recording', etc.
+  source         String   // How consent was obtained
+  timestamp      DateTime
+  proofReference String?  // URL or reference to proof
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([leadId])
+  @@index([organizationId])
+}
+
+model AgreementLedger {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  termsVersion   String
+  termsVersionHash String
+  ipAddress      String
+  acceptedAt     DateTime
+  checkboxStates Json     // Store which checkboxes were checked
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// Separate number pools for different purposes
+model VoiceNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        VoiceNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  callsToday     Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+model SmsNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        SmsNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  messagesToday  Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+enum VoiceNumberPurpose {
+  LANDLINE_COLD_CALLING
+  WARM_MOBILE_CALLS
+  SUPPORT_INBOUND
+}
+
+enum SmsNumberPurpose {
+  SMS_CAMPAIGNS
+  WARM_MOBILE_FOLLOWUP
+}
+
+enum NumberStatus {
+  ACTIVE
+  COOLING_DOWN
+  BLOCKED
+  RETIRED
 }

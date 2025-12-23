@@ -4,11 +4,11 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet, Upload, FileText } from "lucide-react";
+import { Rocket, MessageCircle, Phone, Clock, Users, Loader2, Wallet, Upload, FileText, CheckCircle2 } from "lucide-react";
 import * as api from "@/lib/api";
 import { PRICING } from "@/config/pricing";
-import { WalletFundingModal } from "@/components/WalletFundingModal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 // Pricing constants (imported from centralized config)
@@ -25,9 +25,38 @@ const ESTIMATED_REPLY_RATE = PRICING.ESTIMATED_REPLY_RATE;
 const DAILY_CAMPAIGN_LIMIT = PRICING.DAILY_CAMPAIGN_LIMIT;
 const MONTHLY_SUBSCRIPTION = PRICING.MONTHLY_SUBSCRIPTION;
 
+const csvFields = [
+  "propertyAddress",
+  "Unit #",
+  "City",
+  "State",
+  "Zip",
+  "County",
+  "APN",
+  "Owner Occupation",
+  "Owner 1 First Name",
+  "Owner 1 Last Name",
+  "Owner 2 First Name",
+  "Owner 2 Last Name"
+];
+
+const contactFields = [
+  "-- Don't Import --",
+  "name",
+  "email",
+  "phone",
+  "company",
+  "address",
+  "city",
+  "state",
+  "zip",
+  "notes"
+];
+
 export default function CampaignNew() {
   const [campaignName, setCampaignName] = useState("");
   const [areaCode, setAreaCode] = useState("");
+  const [scheduledStart, setScheduledStart] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [loadingWallet, setLoadingWallet] = useState(true);
@@ -43,12 +72,40 @@ export default function CampaignNew() {
   } | null>(null);
   const [showUploadArea, setShowUploadArea] = useState(true);
   
+  // Upload state
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState("");
+  const [showMapping, setShowMapping] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [validationProgress, setValidationProgress] = useState(0);
+  
   // Modals
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showLaunchModal, setShowLaunchModal] = useState(false);
+  const [showAreaCodeModal, setShowAreaCodeModal] = useState(false);
+  const [showAIDisclosureModal, setShowAIDisclosureModal] = useState(false);
+  const [pendingAreaCode, setPendingAreaCode] = useState("");
+
+  // States requiring AI disclosure: CA, FL, NY, WA
+  const AI_DISCLOSURE_STATES = ['CA', 'FL', 'NY', 'WA'];
+
+  // Area code to state mapping (simplified - in production use a proper API)
+  function getStateFromAreaCode(areaCode: string): string | null {
+    const areaCodeMap: Record<string, string> = {
+      '209': 'CA', '213': 'CA', '310': 'CA', '323': 'CA', '408': 'CA', '415': 'CA', '510': 'CA', '530': 'CA', '559': 'CA', '562': 'CA', '619': 'CA', '626': 'CA', '650': 'CA', '661': 'CA', '707': 'CA', '714': 'CA', '760': 'CA', '805': 'CA', '818': 'CA', '831': 'CA', '858': 'CA', '909': 'CA', '916': 'CA', '925': 'CA', '949': 'CA',
+      '305': 'FL', '321': 'FL', '352': 'FL', '386': 'FL', '407': 'FL', '561': 'FL', '727': 'FL', '754': 'FL', '772': 'FL', '786': 'FL', '813': 'FL', '850': 'FL', '863': 'FL', '904': 'FL', '941': 'FL', '954': 'FL',
+      '212': 'NY', '315': 'NY', '347': 'NY', '516': 'NY', '518': 'NY', '585': 'NY', '607': 'NY', '631': 'NY', '646': 'NY', '716': 'NY', '718': 'NY', '845': 'NY', '914': 'NY', '917': 'NY', '929': 'NY',
+      '206': 'WA', '253': 'WA', '360': 'WA', '425': 'WA', '509': 'WA'
+    };
+    return areaCodeMap[areaCode] || null;
+  }
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     loadWalletBalance();
+    loadOrganization();
     
     // Check URL params for listId from upload page
     const params = new URLSearchParams(window.location.search);
@@ -79,6 +136,110 @@ export default function CampaignNew() {
     }
   }
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFileName(file.name);
+      setUploadedFile(file);
+      setShowMapping(true);
+      // Initialize mappings
+      const newMappings: Record<string, string> = {};
+      csvFields.forEach(field => {
+        newMappings[field] = "-- Don't Import --";
+      });
+      setMappings(newMappings);
+    }
+  };
+
+  const handleMappingChange = (csvField: string, contactField: string) => {
+    setMappings(prev => ({ ...prev, [csvField]: contactField }));
+  };
+
+  const handleContinue = async () => {
+    if (!uploadedFile) return;
+    
+    setError("");
+    setUploading(true);
+    setShowMapping(false);
+    
+    try {
+      // Step 1: Upload file to backend
+      const uploadResult = await api.uploadContacts(uploadedFile);
+      
+      // Step 2: Extract phone numbers from uploaded data
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split('\n');
+          const phoneNumbers: string[] = [];
+          
+          // Extract phone numbers from CSV (assuming phone column exists)
+          for (let i = 1; i < lines.length; i++) { // Skip header
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const columns = line.split(',');
+            // Find phone number columns (adjust based on your CSV structure)
+            const phoneMatch = columns.join(',').match(/(\+?1?\s*\(?[0-9]{3}\)?[\s.-]?[0-9]{3}[\s.-]?[0-9]{4})/g);
+            if (phoneMatch) {
+              phoneNumbers.push(...phoneMatch);
+            }
+          }
+
+          // Step 3: Validate phone numbers
+          setValidating(true);
+          setValidationProgress(0);
+          
+          const validationResults = await api.validatePhoneNumbers(phoneNumbers, (progress) => {
+            setValidationProgress(progress);
+          });
+          
+          setValidating(false);
+          
+          // Step 4: Create validated list
+          const validatedList = await api.createValidatedList({
+            fileName: fileName,
+            totalRows: lines.length - 1,
+            verifiedMobile: validationResults.filter(r => r.phoneType === 'mobile' && r.isValid).length,
+            verifiedLandline: validationResults.filter(r => r.phoneType === 'landline' && r.isValid).length,
+            validatedData: JSON.stringify({
+              leads: [], // Would populate with mapped data
+              validationResults,
+              fieldMappings: mappings,
+            }),
+          });
+          
+          // Update state
+          setListData({
+            totalRows: validatedList.totalRows,
+            verifiedMobile: validatedList.verifiedMobile,
+            verifiedLandline: validatedList.verifiedLandline,
+            listName: validatedList.fileName
+          });
+          setShowUploadArea(false);
+          
+          // Auto-fill campaign name
+          if (!campaignName) {
+            setCampaignName(fileName.replace('.csv', ''));
+          }
+          
+        } catch (err: any) {
+          setError(err.message || 'Failed to process uploaded file');
+        } finally {
+          setUploading(false);
+          setValidating(false);
+        }
+      };
+      
+      reader.readAsText(uploadedFile);
+      
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload file');
+      setUploading(false);
+    }
+  };
+
   async function loadWalletBalance() {
     try {
       setLoadingWallet(true);
@@ -88,6 +249,22 @@ export default function CampaignNew() {
       console.error('Failed to load wallet:', err);
     } finally {
       setLoadingWallet(false);
+    }
+  }
+
+  async function loadOrganization() {
+    try {
+      const org = await api.getOrganization();
+      // Auto-fill area code from org or first brand
+      if (org.areaCode) {
+        setAreaCode(org.areaCode);
+      } else if (org.brands && org.brands.length > 0 && org.brands[0].areaCode) {
+        setAreaCode(org.brands[0].areaCode);
+      }
+      setIsInitialLoad(false);
+    } catch (err) {
+      console.error('Failed to load organization:', err);
+      setIsInitialLoad(false);
     }
   }
 
@@ -175,21 +352,30 @@ export default function CampaignNew() {
     
     const costs = calculateEstimatedCost();
     
-    // Show modal if insufficient balance
-    if (walletBalance < parseFloat(costs.total)) {
+    // Always allow launching - campaign will start when balance is sufficient
+    // Show modal to inform about insufficient balance but still allow creation
+    const hasSufficientBalance = walletBalance >= parseFloat(costs.total);
+    if (!hasSufficientBalance && !scheduledStart) {
       setShowLaunchModal(true);
-      return;
+      // Don't return - allow creation but don't start immediately
     }
     
     setLoading(true);
     
     try {
-      await api.createCampaign({
+      const campaignResponse = await api.createCampaign({
         name: campaignName,
-        mobileCount: listData.verifiedMobile,
-        landlineCount: listData.verifiedLandline,
-        areaCode: areaCode
+        type: 'COLD_CALLING', // Set campaign type for AI cold calling
+        estimatedContacts: listData.verifiedMobile + listData.verifiedLandline,
+        areaCode: areaCode,
+        scheduledStart: scheduledStart || null
       });
+      
+      // Only start immediately if not scheduled AND has sufficient balance
+      if (!scheduledStart && hasSufficientBalance) {
+        await api.startCampaign(campaignResponse.campaign.id);
+      }
+      
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.message || "Failed to create campaign");
@@ -231,7 +417,7 @@ export default function CampaignNew() {
               >
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-sm font-bold text-purple-400">
-                    0
+                    1
                   </div>
                   <h3 className="font-semibold">Contact List</h3>
                 </div>
@@ -260,19 +446,111 @@ export default function CampaignNew() {
                       </div>
                     </div>
                   </div>
+                ) : showMapping ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <CheckCircle2 className="w-5 h-5 text-blue-400" />
+                      <div>
+                        <p className="font-semibold text-blue-400">{fileName}</p>
+                        <p className="text-xs text-muted-foreground">File uploaded successfully</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Map CSV Columns to Contact Fields</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Match your CSV columns to contact fields. Phone field is required.
+                      </p>
+                      
+                      {csvFields.map((csvField) => (
+                        <div key={csvField} className="flex items-center gap-3">
+                          <div className="w-48 text-sm font-medium truncate">{csvField}</div>
+                          <Select
+                            value={mappings[csvField]}
+                            onValueChange={(value) => handleMappingChange(csvField, value)}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {contactFields.map((field) => (
+                                <SelectItem key={field} value={field}>
+                                  {field}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                      
+                      <div className="flex gap-3 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowMapping(false);
+                            setUploadedFile(null);
+                            setFileName("");
+                          }}
+                          className="flex-1"
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          onClick={handleContinue}
+                          disabled={uploading || !Object.values(mappings).includes('phone')}
+                          className="flex-1"
+                        >
+                          {uploading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            "Continue"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {validating && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Validating phone numbers...</span>
+                          <span>{validationProgress}%</span>
+                        </div>
+                        <div className="w-full bg-white/10 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${validationProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                     <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">No list uploaded yet</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => navigate("/upload")}
-                      className="border-white/10 hover:bg-white/5"
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Contact List
-                    </Button>
+                    <p className="text-muted-foreground mb-4">Upload your contact list (CSV format)</p>
+                    <div className="space-y-3">
+                      <Input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <Label
+                        htmlFor="file-upload"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Choose CSV File
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Supports CSV files with contact information
+                      </p>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -286,7 +564,7 @@ export default function CampaignNew() {
               >
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-sm font-bold text-blue-400">
-                    1
+                    2
                   </div>
                   <h3 className="font-semibold">Campaign Info</h3>
                 </div>
@@ -317,7 +595,18 @@ export default function CampaignNew() {
                       value={areaCode}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '').slice(0, 3);
-                        setAreaCode(value);
+                        if (!isInitialLoad && value !== areaCode && value.length === 3) {
+                          const state = getStateFromAreaCode(value);
+                          if (state && AI_DISCLOSURE_STATES.includes(state)) {
+                            setPendingAreaCode(value);
+                            setShowAIDisclosureModal(true);
+                          } else {
+                            setPendingAreaCode(value);
+                            setShowAreaCodeModal(true);
+                          }
+                        } else {
+                          setAreaCode(value);
+                        }
                       }}
                       placeholder="e.g., 415, 212, 310"
                       required
@@ -376,6 +665,42 @@ export default function CampaignNew() {
                       </div>
                     </div>
                   </div>
+                </div>
+              </motion.div>
+
+              {/* Schedule Campaign */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="glass-card rounded-2xl p-6 border border-orange-500/30"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-sm font-bold text-orange-400">
+                    3
+                  </div>
+                  <h3 className="font-semibold">Schedule Campaign (Optional)</h3>
+                </div>
+                <div className="text-sm text-muted-foreground mb-4">
+                  Schedule your campaign to start at a future date and time. You'll still pay now, but outreach won't begin until the scheduled time.
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="scheduledStart" className="text-sm font-medium">
+                    Start Date & Time
+                  </Label>
+                  <Input
+                    id="scheduledStart"
+                    type="datetime-local"
+                    data-testid="input-scheduled-start"
+                    value={scheduledStart}
+                    onChange={(e) => setScheduledStart(e.target.value)}
+                    min={new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)} // At least 1 hour from now
+                    className="glass-card border-white/10 focus:border-primary focus:bg-white/5"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    ⏰ Leave empty to start immediately after launch. Minimum 1 hour from now.
+                  </p>
                 </div>
               </motion.div>
 
@@ -521,9 +846,22 @@ export default function CampaignNew() {
                     
                     {/* Total */}
                     <div className="border-t border-white/10 pt-2 flex justify-between">
-                      <span className="font-semibold">Total Required</span>
+                      <span className="font-semibold">Total Estimated Campaign Cost</span>
                       <span className="text-2xl font-bold text-green-400">${costs.total}</span>
                     </div>
+                  </div>
+                </div>
+
+                {/* Number Recommendations */}
+                <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+                  <div className="text-sm font-semibold text-blue-400 mb-2">📞 Recommended Phone Numbers</div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="font-medium mb-1">Cold Calling Number Ratios:</div>
+                    <div>• 1–100 calls/hr → 1–2 voice numbers</div>
+                    <div>• 100–500 calls/hr → 5–10 voice numbers</div>
+                    <div>• 500–1,000 calls/hr → 15–30 voice numbers</div>
+                    <div>• 5,000+/day → 50–100 voice numbers</div>
+                    <div className="text-blue-300 mt-2 font-medium">⚠️ Do NOT use 1:1 ratio at scale - carriers flag unnatural patterns</div>
                   </div>
                 </div>
 
@@ -654,6 +992,133 @@ export default function CampaignNew() {
               >
                 <Wallet className="w-4 h-4 mr-2" />
                 Reload Wallet
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Area Code Change Modal */}
+      <Dialog open={showAreaCodeModal} onOpenChange={setShowAreaCodeModal}>
+        <DialogContent className="glass-card border-white/10">
+          <DialogHeader>
+            <DialogTitle>Change Area Code</DialogTitle>
+            <DialogDescription>
+              Changing your area code will affect your phone numbers and campaigns. What would you like to do?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="p-4 border border-red-500/30 rounded-lg bg-red-500/10">
+              <h4 className="font-medium text-red-400 mb-2">⚠️ Switch Marketplace</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                This will release your current phone numbers and buy new ones in area code {pendingAreaCode}. 
+                All active campaigns will be stopped, and you may lose data.
+              </p>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  try {
+                    // Assume first brand for now
+                    const org = await api.getOrganization();
+                    const brandId = org.brands[0].id;
+                    await api.switchAreaCode(brandId, pendingAreaCode, true);
+                    setAreaCode(pendingAreaCode);
+                    setShowAreaCodeModal(false);
+                    alert('Area code switched successfully. Campaigns stopped.');
+                  } catch (error) {
+                    alert('Failed to switch area code: ' + error.message);
+                  }
+                }}
+                className="w-full"
+              >
+                Switch Marketplace (Data Loss Warning)
+              </Button>
+            </div>
+
+            <div className="p-4 border border-green-500/30 rounded-lg bg-green-500/10">
+              <h4 className="font-medium text-green-400 mb-2">➕ Add New Marketplace</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                Add area code {pendingAreaCode} as a new marketplace for $24/month. 
+                This gives you 12 additional numbers without increasing daily limits.
+              </p>
+              <Button
+                variant="default"
+                onClick={async () => {
+                  try {
+                    await api.addMarketplace(pendingAreaCode);
+                    setAreaCode(pendingAreaCode);
+                    setShowAreaCodeModal(false);
+                    alert('New marketplace added successfully.');
+                  } catch (error) {
+                    alert('Failed to add marketplace: ' + error.message);
+                  }
+                }}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                Add Marketplace ($24/month)
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Disclosure Warning Modal */}
+      <Dialog open={showAIDisclosureModal} onOpenChange={setShowAIDisclosureModal}>
+        <DialogContent className="glass-card border-red-500/30 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              ⚠️ AI Disclosure Law Warning
+            </DialogTitle>
+            <DialogDescription>
+              The area code you selected is in a state that requires AI disclosure for automated calls.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+              <div className="space-y-3 text-sm">
+                <div className="font-semibold text-red-400">Affected States: CA, FL, NY, WA</div>
+                <div className="text-red-300">
+                  <strong>Legal Requirement:</strong> You MUST disclose that this is an AI-assisted call at the beginning of every call.
+                </div>
+                <div className="text-red-300">
+                  <strong>Required Disclosure:</strong> "This is an AI-assisted call..."
+                </div>
+                <div className="text-red-200 text-xs">
+                  Failure to comply may result in fines, legal action, or service termination.
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              We strongly recommend against cold calling in these states due to strict AI disclosure laws and high compliance risk.
+            </p>
+
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAIDisclosureModal(false);
+                  setPendingAreaCode("");
+                }}
+                className="flex-1 border-white/10 hover:bg-white/5"
+              >
+                Choose Different Area Code
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setAreaCode(pendingAreaCode);
+                  setShowAIDisclosureModal(false);
+                  setPendingAreaCode("");
+                  // Show area code change modal if needed
+                  setShowAreaCodeModal(true);
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700"
+              >
+                I Understand - Continue
               </Button>
             </div>
           </div>

@@ -68,9 +68,52 @@ async function provisionCampaignPhoneNumbers({ orgId, areaCode, count = 1 }) {
   return { created: true, numbers, fake: false };
 }
 
+// Check and start scheduled campaigns that are due
+async function checkAndStartScheduledCampaigns(brandId) {
+  try {
+    const now = new Date();
+    const scheduledCampaigns = await prisma.campaign.findMany({
+      where: {
+        brandId,
+        status: 'SCHEDULED',
+        scheduledStart: {
+          lte: now
+        }
+      }
+    });
+
+    for (const campaign of scheduledCampaigns) {
+      // Check if organization has sufficient balance
+      const brand = await prisma.brand.findUnique({ where: { id: brandId } });
+      if (!brand) continue;
+
+      const org = await prisma.organization.findUnique({ where: { id: brand.orgId } });
+      if (!org) continue;
+
+      // For now, assume campaigns can start even with low balance
+      // The worker will handle balance checks during execution
+      try {
+        const workerEnqueue = await getEnqueueCampaign();
+        if (workerEnqueue) {
+          await workerEnqueue(org.id, campaign.id, campaign.batchSize || 50, campaign.intervalMinutes || 30);
+          await prisma.campaign.update({ 
+            where: { id: campaign.id }, 
+            data: { status: 'RUNNING' } 
+          });
+          console.log(`Started scheduled campaign: ${campaign.name}`);
+        }
+      } catch (error) {
+        console.error(`Failed to start scheduled campaign ${campaign.id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error checking scheduled campaigns:', error);
+  }
+}
+
 // POST /campaigns - Create a new campaign
 router.post('/', async (req, res) => {
-  const { name, type, estimatedContacts, areaCode } = req.body || {};
+  const { name, type, estimatedContacts, areaCode, scheduledStart } = req.body || {};
   const orgId = req.auth.organizationId;
 
   if (!name || !type) {
@@ -110,9 +153,10 @@ router.post('/', async (req, res) => {
       brandId: brand.id,
       name,
       callingMode: type,
-      status: 'DRAFT',
+      status: scheduledStart ? 'SCHEDULED' : 'DRAFT',
       batchSize: 50,
       intervalMinutes: 30,
+      scheduledStart: scheduledStart ? new Date(scheduledStart) : null,
     },
   });
 
@@ -148,6 +192,7 @@ router.post('/', async (req, res) => {
       name: campaign.name,
       type: campaign.callingMode,
       status: campaign.status,
+      scheduledStart: campaign.scheduledStart,
     },
     phoneNumbers: phoneNumbersResult,
     limits: {
@@ -260,6 +305,37 @@ router.post('/:id/pause', async (req, res) => {
 
   await prisma.campaign.update({ where: { id }, data: { status: 'PAUSED' } });
   res.json({ ok: true });
+});
+
+// GET /campaigns - List all campaigns for the organization
+router.get('/', async (req, res) => {
+  const orgId = req.auth.organizationId;
+
+  // Get org's default brand
+  const brand = await prisma.brand.findFirst({ where: { orgId } });
+  if (!brand) {
+    return res.json([]); // Return empty array if no brand found
+  }
+
+  // Check for scheduled campaigns that should be started
+  await checkAndStartScheduledCampaigns(brand.id);
+
+  // Get all campaigns for this brand
+  const campaigns = await prisma.campaign.findMany({
+    where: { brandId: brand.id },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      name: true,
+      callingMode: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      scheduledStart: true
+    }
+  });
+
+  res.json(campaigns);
 });
 
 module.exports = router;

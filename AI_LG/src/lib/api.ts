@@ -168,6 +168,12 @@ export async function startCampaign(id: string, batchSize?: number, intervalMinu
   });
 }
 
+export async function pauseCampaign(id: string) {
+  return apiRequest(`/campaigns/${id}/pause`, {
+    method: 'POST',
+  });
+}
+
 export async function simulateCampaign(id: string) {
   return apiRequest(`/campaigns/${id}/simulate`, {
     method: 'POST',
@@ -258,10 +264,72 @@ export async function saveValidatedList(data: {
   });
 }
 
+export async function createValidatedList(data: {
+  fileName: string;
+  totalRows: number;
+  verifiedMobile: number;
+  verifiedLandline: number;
+  validatedData: string;
+}) {
+  return apiRequest('/lists/validated', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function getValidatedList(listId: string) {
   return apiRequest(`/lists/validated/${listId}`);
 }
 
 export async function getValidatedLists() {
   return apiRequest('/lists/validated');
+}
+
+// Phone Validation
+export async function validatePhoneNumbers(phoneNumbers: string[], onProgress?: (progress: number) => void) {
+  const response = await apiRequest('/phone/validate/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ phoneNumbers }),
+  });
+  
+  // Simulate progress if callback provided
+  if (onProgress) {
+    onProgress(100);
+  }
+  
+  return response;
+}
+
+// Organization
+export async function getOrganization() {
+  return apiRequest('/organization');
+}
+
+export async function switchAreaCode(brandId: string, newAreaCode: string, confirmDataLoss: boolean = false) {
+  return apiRequest('/organization/switch-area-code', {
+    method: 'POST',
+    body: JSON.stringify({ brandId, newAreaCode, confirmDataLoss }),
+  });
+}
+
+export async function addMarketplace(areaCode: string) {
+  return apiRequest('/organization/add-marketplace', {
+    method: 'POST',
+    body: JSON.stringify({ areaCode }),
+  });
+}
+
+export async function addSubaccount(businessInfo: any) {
+  return apiRequest('/organization/add-subaccount', {
+    method: 'POST',
+    body: JSON.stringify(businessInfo),
+  });
+}
+
+// Voice
+export async function getVoiceToken(identity?: string) {
+  return apiRequest('/voice/token', {
+    method: 'POST',
+    body: JSON.stringify({ identity }),
+  });
 }

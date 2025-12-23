@@ -17,6 +17,7 @@ const statsRouter = require('./routes/stats');
 const organizationRouter = require('./routes/organization');
 const validatedListsRouter = require('../routes/validated-lists');
 const verificationRouter = require('./routes/verification');
+const complianceRouter = require('../routes/compliance');
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/stats', statsRouter);
 app.use('/organization', organizationRouter);
 app.use('/lists', validatedListsRouter);
 app.use('/verification', verificationRouter);
+app.use('/compliance', complianceRouter);
 app.use('/', paypalWebhookRouter);
 
 app.get('/', (req, res) => res.json({ ok: true }));
