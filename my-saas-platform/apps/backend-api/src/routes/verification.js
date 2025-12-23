@@ -99,7 +99,7 @@ router.post('/phone/verify', async (req, res) => {
 const emailVerificationCodes = new Map();
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const VERIFICATION_FROM_EMAIL = process.env.VERIFICATION_FROM_EMAIL || 'noreply@leadgenie.online';
-const fetch = require('node-fetch');
+// const fetch = require('node-fetch'); // Node.js 18+ has built-in fetch
 
 /**
  * Send email verification code using Resend
