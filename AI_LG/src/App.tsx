@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import SignUp from "@/pages/signup";
+import SignIn from "@/pages/signin";
 import BusinessInfo from "@/pages/BusinessInfo";
 import UploadList from "@/pages/UploadList";
 import CampaignNew from "@/pages/CampaignNew";
@@ -16,6 +17,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/signup" component={SignUp} />
+      <Route path="/signin" component={SignIn} />
       <Route path="/register" component={BusinessInfo} />
       <Route path="/upload" component={UploadList} />
       <Route path="/campaign/new" component={CampaignNew} />

@@ -10,13 +10,14 @@ const settingsRouter = require('./routes/settings');
 const marketplaceRouter = require('./routes/marketplace');
 const adminRouter = require('./routes/admin');
 const aiRouter = require('./routes/ai');
-const paypalWebhookRouter = require('../routes/paypal-webhook');
+const paypalWebhookRouter = require('./routes/paypal-webhook');
 const uploadRouter = require('../routes/upload');
 const voiceRouter = require('./routes/voice');
 const statsRouter = require('./routes/stats');
 const organizationRouter = require('./routes/organization');
 const validatedListsRouter = require('../routes/validated-lists');
 const verificationRouter = require('./routes/verification');
+const subscriptionsRouter = require('./routes/subscriptions');
 const complianceRouter = require('../routes/compliance');
 
 const app = express();
@@ -50,8 +51,9 @@ app.use('/stats', statsRouter);
 // app.use('/organization', organizationRouter); // commented out for testing
 app.use('/lists', validatedListsRouter);
 app.use('/verification', verificationRouter);
+app.use('/subscriptions', subscriptionsRouter);
 // app.use('/compliance', complianceRouter); // commented out for testing
-// app.use('/', paypalWebhookRouter); // commented out for testing
+app.use('/webhooks', paypalWebhookRouter);
 
 app.get('/', (req, res) => res.json({ ok: true }));
 

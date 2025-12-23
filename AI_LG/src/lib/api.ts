@@ -82,6 +82,13 @@ export async function signup(email: string, password: string, businessName: stri
   return data;
 }
 
+export async function confirmSubscription(subscriptionId: string, provider = 'PAYPAL', planId = 'default') {
+  return apiRequest('/subscriptions/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ subscriptionId, provider, planId }),
+  });
+}
+
 export function logout() {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('organization_id');

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Building2, Loader2 } from "lucide-react";
+import { Building2, Loader2, Shield } from "lucide-react";
 import * as api from "@/lib/api";
 
 const businessTypes = [
@@ -60,6 +60,11 @@ export default function BusinessInfo() {
   const [, navigate] = useLocation();
 
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const paypalRef = useRef<HTMLDivElement | null>(null);
+  const [paypalRendered, setPaypalRendered] = useState(false);
+  const [paypalLoading, setPaypalLoading] = useState(false);
+  const [subscriptionMessage, setSubscriptionMessage] = useState<string | null>(null);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -72,6 +77,36 @@ export default function BusinessInfo() {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    if (paypalRef.current && !paypalRendered && (window as any).paypal) {
+      setPaypalRendered(true);
+      (window as any).paypal.Buttons({
+        style: { shape: 'rect', color: 'gold', layout: 'vertical', label: 'subscribe', height: 48 },
+        createSubscription: function(data: any, actions: any) {
+          return actions.subscription.create({ plan_id: 'P-3KG33042G61540411NFE25OI' });
+        },
+        onApprove: async function(data: any) {
+          try {
+            setPaypalLoading(true);
+            await api.confirmSubscription(data.subscriptionID, 'PAYPAL', 'monthly');
+            setSignupSuccess(false);
+            setSubscriptionMessage('Subscription confirmed. You may continue with Business Info.');
+            try { localStorage.setItem('subscription_success', 'true'); } catch(_) {}
+          } catch (e: any) {
+            console.error('subscribe confirm error', e);
+            setSubscriptionError('Failed to confirm subscription.');
+          } finally {
+            setPaypalLoading(false);
+          }
+        },
+        onError: function(err: any) {
+          console.error('PayPal error', err);
+          setSubscriptionError('PayPal error. Please try again.');
+        }
+      }).render(paypalRef.current);
+    }
+  }, [paypalRendered]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -449,6 +484,24 @@ export default function BusinessInfo() {
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     To send messages to US phone numbers, carriers require businesses to register their brand and campaigns (A2P 10DLC). This ensures high delivery rates and protects consumers from spam.
                   </p>
+                </div>
+
+                {/* Subscription Card (PayPal) */}
+                <div className="pt-4">
+                  <div className="text-sm font-medium mb-2">Monthly Subscription</div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="text-2xl font-bold">$49</div>
+                    <div className="text-sm text-muted-foreground">/month — includes 10DLC registration fees</div>
+                  </div>
+                  <div className="mb-3 text-sm text-muted-foreground">This covers A2P 10DLC registration and phone numbers for campaigns.</div>
+                  <div ref={paypalRef} className="w-full min-h-[48px] mb-2" />
+                  {paypalLoading && <div className="text-sm text-muted-foreground">Processing subscription...</div>}
+                  {subscriptionMessage && (
+                    <div className="mt-2 p-2 rounded-md bg-green-500/10 border border-green-500/30 text-green-400 text-sm">{subscriptionMessage}</div>
+                  )}
+                  {subscriptionError && (
+                    <div className="mt-2 p-2 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{subscriptionError}</div>
+                  )}
                 </div>
 
                 {/* Registration Steps */}

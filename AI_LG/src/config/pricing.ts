@@ -5,7 +5,7 @@
 
 export const PRICING = {
   // Monthly Subscription
-  MONTHLY_SUBSCRIPTION: 49.00, // $49/month covers 10DLC ($19) + 6-8 phone numbers (~$12-16) + platform
+  MONTHLY_SUBSCRIPTION: 49.00, // $49/month covers 10DLC ($19) + 8-12 phone numbers (~$16-24) + platform
   
   // Usage-Based Charges (billed from wallet)
   SMS_COST: 0.025, // $0.025 per SMS (includes SMS Service($0.01), Carrier Fees($0.005), AI Classification & AI Replies ($0.005), Phone Verification & Lead Genie portion)

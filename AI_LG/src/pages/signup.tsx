@@ -96,6 +96,13 @@ export default function SignUp() {
     }
   }, [step, paypalRendered]);
 
+  // Reset rendered flag when leaving subscription so PayPal can re-render when navigating back
+  useEffect(() => {
+    if (step !== 'subscription' && paypalRendered) {
+      setPaypalRendered(false);
+    }
+  }, [step]);
+
   return (
     <AppLayout>
       <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12">
@@ -280,7 +287,7 @@ export default function SignUp() {
                     <div className="flex items-start gap-3">
                       <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-medium">6-8 Dedicated Phone Numbers</div>
+                        <div className="font-medium">8-12 Dedicated Phone Numbers</div>
                         <div className="text-sm text-muted-foreground">Voice + SMS numbers for campaigns</div>
                       </div>
                     </div>
