@@ -10,7 +10,7 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // Import compliance services (these would need to be created if they don't exist)
-const AuditLoggingService = require('../src/services/AuditLoggingService');
+const AuditLoggingService = require('../src/services/auditLoggingService');
 const ComplianceEnforcementMiddleware = require('../src/middleware/ComplianceEnforcementMiddleware');
 
 /**

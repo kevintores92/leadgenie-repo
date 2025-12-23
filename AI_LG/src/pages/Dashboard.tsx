@@ -38,10 +38,6 @@ export default function Dashboard() {
   const [callStatus, setCallStatus] = useState<string>('disconnected');
   const [currentCall, setCurrentCall] = useState<any>(null);
   const [callDuration, setCallDuration] = useState<number>(0);
-  const [twilioDevice, setTwilioDevice] = useState<any>(null);
-  const [currentCall, setCurrentCall] = useState<any>(null);
-  const [callStatus, setCallStatus] = useState<string>('');
-  const [callDuration, setCallDuration] = useState<number>(0);
   const [callTimer, setCallTimer] = useState<NodeJS.Timeout | null>(null);
   const [activeTab, setActiveTab] = useState<'sms' | 'cold-calling'>('sms');
 
