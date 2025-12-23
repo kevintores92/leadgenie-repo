@@ -11,7 +11,18 @@ process.on('uncaughtException', (error) => {
   // Don't exit the process
 });
 
+console.log('Starting server...');
 const port = process.env.PORT || 5000;
-app.listen(port, () => {
+console.log(`Attempting to listen on port ${port}`);
+
+const server = app.listen(port, () => {
   console.log(`Backend API listening on ${port}`);
+});
+
+server.on('error', (error) => {
+  console.error('Server error:', error);
+});
+
+server.on('close', () => {
+  console.log('Server closed');
 });

@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://backend-production-fc9c.up.railway.app';
 
 // Get auth token from localStorage or session
 function getAuthToken() {

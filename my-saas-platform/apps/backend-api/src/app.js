@@ -36,22 +36,22 @@ app.use(morgan('dev'));
 app.use(cors({ origin: true, credentials: true }));
 
 app.use('/auth', authRouter);
-app.use('/campaigns', campaignsRouter);
-app.use('/webhooks', webhooksRouter);
+// app.use('/campaigns', campaignsRouter); // commented out for testing
+// app.use('/webhooks', webhooksRouter); // commented out for testing
 app.use('/contacts', contactsRouter);
 app.use('/wallet', walletRouter);
 app.use('/settings', settingsRouter);
 app.use('/marketplace', marketplaceRouter);
 app.use('/admin', adminRouter);
 app.use('/ai', aiRouter);
-app.use('/upload', uploadRouter);
-app.use('/webhooks', voiceRouter); // Vapi voice webhooks
+// app.use('/upload', uploadRouter); // commented out for testing
+// app.use('/webhooks', voiceRouter); // Vapi voice webhooks - commented out for testing
 app.use('/stats', statsRouter);
-app.use('/organization', organizationRouter);
+// app.use('/organization', organizationRouter); // commented out for testing
 app.use('/lists', validatedListsRouter);
 app.use('/verification', verificationRouter);
-app.use('/compliance', complianceRouter);
-app.use('/', paypalWebhookRouter);
+// app.use('/compliance', complianceRouter); // commented out for testing
+// app.use('/', paypalWebhookRouter); // commented out for testing
 
 app.get('/', (req, res) => res.json({ ok: true }));
 
