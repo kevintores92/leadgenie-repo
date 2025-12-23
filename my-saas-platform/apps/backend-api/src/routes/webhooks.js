@@ -32,7 +32,8 @@ function parseRedisConnection() {
   };
 }
 
-const inboundQueue = new Queue('inbound-process', { connection: parseRedisConnection() });
+// Redis queues disabled for development
+const inboundQueue = null;
 
 router.use(webhookLogger);
 router.use(globalRateLimiter);
@@ -85,14 +86,16 @@ router.post(`/twilio/inbound-${suffix}`, async (req, res) => {
   });
 
   // Kick off async AI processing (classification + auto-reply + warm-caller triggers)
-  try {
-    await inboundQueue.add(
-      'process-inbound',
-      { messageId: inbound.id, organizationId: orgId, autoReply: true },
-      { attempts: 3, backoff: { type: 'exponential', delay: 1000 } }
-    );
-  } catch (e) {
-    console.warn('Failed to enqueue inbound AI job', e && e.message);
+  if (inboundQueue) {
+    try {
+      await inboundQueue.add(
+        'process-inbound',
+        { messageId: inbound.id, organizationId: orgId, autoReply: true },
+        { attempts: 3, backoff: { type: 'exponential', delay: 1000 } }
+      );
+    } catch (e) {
+      console.warn('Failed to enqueue inbound AI job', e && e.message);
+    }
   }
 
   // mark contact as replied

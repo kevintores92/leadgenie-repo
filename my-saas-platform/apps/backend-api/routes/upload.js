@@ -15,10 +15,8 @@ const redisConfig = {
   port: parseInt(process.env.REDIS_PORT || '6379'),
 };
 
-// Create queue for phone scrub jobs
-const phoneScrubQueue = new Queue('phone-scrub', {
-  connection: redisConfig,
-});
+// Redis queues disabled for development
+const phoneScrubQueue = null;
 
 // Configure multer for file uploads
 const uploadDir = process.env.UPLOAD_STORAGE_PATH || 'storage/uploads';
@@ -129,26 +127,28 @@ router.post('/phone-scrub', authenticate, upload.single('file'), async (req, res
     });
 
     // Queue the background job
-    await phoneScrubQueue.add(
-      'process-upload',
-      {
-        jobId,
-        userId,
-        orgId,
-        filePath: req.file.path,
-        filename: req.file.originalname,
-        mapping,
-        brandId,
-        storeUnmappedCustomFields: true,
-      },
-      {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
+    if (phoneScrubQueue) {
+      await phoneScrubQueue.add(
+        'process-upload',
+        {
+          jobId,
+          userId,
+          orgId,
+          filePath: req.file.path,
+          filename: req.file.originalname,
+          mapping,
+          brandId,
+          storeUnmappedCustomFields: true,
         },
-      }
-    );
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+        }
+      );
+    }
 
     // Respond immediately with job ID
     return res.status(202).json({
