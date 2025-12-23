@@ -387,7 +387,6 @@ export default function SignUp() {
                 </div>
               </motion.div>
             </div>
-            </>
             )}
         </motion.div>
       </div>
