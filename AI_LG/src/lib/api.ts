@@ -21,17 +21,32 @@ async function apiRequest(endpoint: string, options: RequestInit = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  // Add a timeout so UI doesn't hang indefinitely on network issues
+  const controller = new AbortController();
+  const timeoutMs = 15000; // 15s
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (e: any) {
+    if (e.name === 'AbortError') throw new Error('Request timed out');
+    throw new Error(e.message || 'Network error');
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
     throw new Error(error.error || `HTTP ${response.status}`);
   }
 
-  return response.json();
+  // Try to parse JSON, but provide fallback
+  return response.json().catch(() => ({}));
 }
 
 // Auth

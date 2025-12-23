@@ -22,7 +22,8 @@ export default function SignUp() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  // default to showing the password (user requested)
+  const [showPassword, setShowPassword] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [, navigate] = useLocation();
@@ -158,9 +159,14 @@ export default function SignUp() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signin-password" className="text-sm font-medium">Password</Label>
-                    <Input id="signin-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                    <div className="relative">
+                      <Input id="signin-password" data-testid="input-signin-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required className="pr-10" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                  <Button type="submit" className="w-full">{loading ? 'Signing in...' : 'Sign In'}</Button>
+                  <Button type="submit" className="w-full" disabled={loading} aria-busy={loading}>{loading ? 'Signing in...' : 'Sign In'}</Button>
                   <div className="text-center text-sm text-muted-foreground mt-3">
                     <button type="button" className="underline" onClick={() => setAuthMode('signup')}>Create an account</button>
                   </div>
