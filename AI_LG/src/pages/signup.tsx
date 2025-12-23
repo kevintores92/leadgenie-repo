@@ -16,6 +16,7 @@ declare global {
 }
 
 export default function SignUp() {
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
   const [step, setStep] = useState<"account" | "subscription">("account");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +45,20 @@ export default function SignUp() {
     
     // Skip verification and go directly to subscription
     setStep("subscription");
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await api.login(email, password);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // verification removed
@@ -112,6 +127,48 @@ export default function SignUp() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-4xl"
         >
+            {/* Tabs: Sign Up / Sign In */}
+            <div className="flex gap-2 mb-6 max-w-md mx-auto">
+              <button
+                className={`flex-1 h-10 rounded-md ${authMode === 'signup' ? 'bg-primary text-white' : 'bg-card'}`}
+                onClick={() => setAuthMode('signup')}
+                aria-pressed={authMode === 'signup'}
+              >
+                Sign Up
+              </button>
+              <button
+                className={`flex-1 h-10 rounded-md ${authMode === 'signin' ? 'bg-primary text-white' : 'bg-card'}`}
+                onClick={() => setAuthMode('signin')}
+                aria-pressed={authMode === 'signin'}
+              >
+                Sign In
+              </button>
+            </div>
+
+            {authMode === 'signin' ? (
+              <div className="glass-card p-8 rounded-2xl max-w-md mx-auto">
+                <h2 className="text-2xl font-bold mb-4">Sign In</h2>
+                {error && (
+                  <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>
+                )}
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email" className="text-sm font-medium">Email</Label>
+                    <Input id="signin-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-password" className="text-sm font-medium">Password</Label>
+                    <Input id="signin-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  </div>
+                  <Button type="submit" className="w-full">{loading ? 'Signing in...' : 'Sign In'}</Button>
+                  <div className="text-center text-sm text-muted-foreground mt-3">
+                    <button type="button" className="underline" onClick={() => setAuthMode('signup')}>Create an account</button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              // existing signup flow continues
+              <>
           {step === "account" ? (
             // Step 1: Account Creation
             <div className="glass-card p-8 rounded-2xl max-w-md mx-auto">
@@ -330,7 +387,8 @@ export default function SignUp() {
                 </div>
               </motion.div>
             </div>
-          )}
+            </>
+            )}
         </motion.div>
       </div>
     </AppLayout>
