@@ -7,7 +7,7 @@
  */
 
 const express = require('express');
-const fetch = require('node-fetch');
+// Node.js 18+ has built-in fetch
 const { PrismaClient } = require('@prisma/client');
 const {
   safeCreditWallet,
