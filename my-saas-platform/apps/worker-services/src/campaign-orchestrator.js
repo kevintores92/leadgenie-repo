@@ -1,6 +1,8 @@
 // --- File: campaign-orchestrator.js ---
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import IORedis from 'ioredis';
+import { Queue } from 'bullmq';
 
 const prisma = new PrismaClient({
   errorFormat: 'pretty',
@@ -110,12 +112,32 @@ async function processCampaign(campaign) {
             console.error('Error checking last message for duplicates', e);
         }
 
-        // --- STEP 4: Dispatch via campaignSender's sendNow helper ---
+        // --- STEP 4: Dispatch ---
         try {
-            const { sendNow } = require('./campaignSender');
-            await sendNow(campaign.org_id ? String(campaign.org_id) : null, campaign.campaign_id || campaign.campaign_id, contact.id);
+            // If this campaign is a cold-calling voice campaign, enqueue to the voice worker
+            const isCold = campaign.callingMode === 'COLD_CALLING' || campaign.campaign_type === 'COLD_CALLING';
+
+            if (isCold) {
+                // Use Redis connection to push to voice-calls queue
+                const redisUrl = process.env.REDIS_URL || null;
+                const redisOpts = redisUrl ? new URL(redisUrl) : null;
+                const redisConn = redisUrl ? { host: redisOpts.hostname, port: Number(redisOpts.port) || 6379, password: redisOpts.password || undefined } : { host: process.env.REDIS_HOST || '127.0.0.1', port: Number(process.env.REDIS_PORT) || 6379 };
+                const connection = new IORedis(redisConn);
+                const voiceQueue = new Queue('voice-calls', { connection });
+
+                // Respect a conservative default interval between calls during testing
+                const intervalSeconds = Number(process.env.COLD_CALL_INTERVAL_SECONDS || 120); // default 120s (2 minutes)
+                const delay = (batchIndex * intervalSeconds) * 1000;
+
+                await voiceQueue.add('make-call', { contactId: contact.id, organizationId: campaign.org_id ? String(campaign.org_id) : null, callType: 'cold' }, { delay });
+                // close ioredis connection to avoid leaks
+                connection.disconnect();
+            } else {
+                const { sendNow } = require('./campaignSender');
+                await sendNow(campaign.org_id ? String(campaign.org_id) : null, campaign.campaign_id || campaign.campaign_id, contact.id);
+            }
         } catch (e) {
-            console.error('Error sending contact via campaignSender', e);
+            console.error('Error dispatching contact for campaign', e);
         }
     }
 

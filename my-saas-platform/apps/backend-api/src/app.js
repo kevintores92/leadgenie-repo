@@ -33,8 +33,20 @@ app.use('/webhooks/paypal', express.raw({ type: 'application/json' }), (req, res
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Allow CORS from the dev client and other origins
-app.use(cors({ origin: true, credentials: true }));
+// Configure CORS: if ALLOWED_ORIGINS env var exists, use it (comma-separated).
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || null;
+if (ALLOWED_ORIGINS) {
+  const allowed = ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean);
+  app.use(cors({ origin: function(origin, cb) {
+    // allow non-browser requests like curl (no origin)
+    if (!origin) return cb(null, true);
+    if (allowed.includes(origin)) return cb(null, true);
+    return cb(new Error('CORS not allowed for origin ' + origin));
+  }, credentials: true }));
+} else {
+  // default permissive during development, but can be tightened in production
+  app.use(cors({ origin: true, credentials: true }));
+}
 
 app.use('/auth', authRouter);
 // app.use('/campaigns', campaignsRouter); // commented out for testing

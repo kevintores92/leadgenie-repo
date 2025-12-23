@@ -112,7 +112,7 @@ router.post('/login', async (req, res) => {
   const devPass = process.env.DEV_AUTH_PASSWORD;
   if (devEmail && devPass && email === devEmail && String(password) === String(devPass)) {
     // ensure dev user exists
-    let user = await prisma.user.findUnique({ where: { email: devEmail } });
+    let user = await prisma.user.findFirst({ where: { email: devEmail } });
     if (!user) {
       let org = await prisma.organization.findFirst();
       if (!org) org = await prisma.organization.create({ data: { name: 'Dev Org' } });
@@ -124,7 +124,7 @@ router.post('/login', async (req, res) => {
     return res.json({ ok: true, redirect: '/dashboard', token, user: { id: user.id, username: user.username, email: user.email, orgId: user.orgId } });
   }
   let user = null;
-  if (email) user = await prisma.user.findUnique({ where: { email } });
+  if (email) user = await prisma.user.findFirst({ where: { email } });
   if (!user && username) user = await prisma.user.findUnique({ where: { username } });
   if (!user) return res.status(404).json({ error: 'user not found' });
   const valid = user.passwordHash ? await bcrypt.compare(String(password), user.passwordHash) : false;

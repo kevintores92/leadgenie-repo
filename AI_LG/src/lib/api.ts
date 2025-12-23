@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.leadgenie.online';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4001';
 
 // Get auth token from localStorage or session
 function getAuthToken() {

@@ -1,0 +1,2215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  // Wallet and AI feature flags
+  walletBalance        Float                     @default(0.0)
+  aiRepliesEnabled     Boolean                   @default(false)
+  aiCallsEnabled       Boolean                   @default(false)
+  aiWarmQualificationDepth AiQualificationDepth   @default(FULL)
+  aiColdQualificationDepth AiQualificationDepth   @default(FULL)
+  aiCallRecordingEnabled   Boolean                @default(false)
+  aiRecordingConsentLine   String?
+  aiMinMotivationIndicatorsForHot Int            @default(2)
+  plan                 Plan                      @default(STARTER)
+  marketplaces         String[]                  @default([])
+  areaCode             String?
+  timeZone             String?
+  pricingMarkupPercent Int                       @default(30)
+
+  // 10DLC Business Information
+  legalName            String?
+  dbaName              String?
+  businessType         String?
+  ein                  String?
+  address              String?
+  city                 String?
+  state                String?
+  zip                  String?
+  country              String?                   @default("United States")
+  website              String?
+  contactName          String?
+  contactEmail         String?
+  contactPhone         String?
+  businessDescription  String?
+  dlcBrandRegistered   Boolean                   @default(false)
+  dlcCampaignRegistered Boolean                  @default(false)
+
+  brands               Brand[]
+  users                User[]
+  usages               Usage[]
+  sendingNumbers       SendingNumber[]
+  activities           Activity[]
+  contacts             Contact[]
+  wallet               OrganizationWallet?
+  subscription         OrganizationSubscription?
+  uploadJobs           UploadJob[]
+}
+
+model Usage {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String
+  cost           Float
+  createdAt      DateTime @default(now())
+}
+
+model Brand {
+  id                   String   @id @default(cuid())
+  orgId                String
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name                 String
+  twilioSubaccountSid  String?
+  subaccountAuthToken  String?
+  twilioTwiMLAppSid    String?
+  areaCode             String?
+  callingMode          String
+  aiVoicePlatformUrl   String?
+  createdAt            DateTime @default(now())
+
+  users                User[]
+  phoneNumbers         PhoneNumber[]
+  campaigns            Campaign[]
+  contacts             Contact[]
+  messages             Message[]
+  calls                CallLog[]
+  customFieldDefs      CustomFieldDefinition[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  activeBrandId String?
+  activeBrand   Brand?   @relation(fields: [activeBrandId], references: [id])
+  username      String   @unique
+  email         String?
+  passwordHash  String?
+  createdAt     DateTime @default(now())
+
+  campaigns     Campaign[]
+}
+
+model PhoneNumber {
+  id              String   @id @default(cuid())
+  organizationId  String
+  brandId         String?
+  brand           Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  twilioSid       String   @unique
+  phoneNumber     String   @unique
+  status          PhoneNumberStatus @default(ACTIVE)
+  warmupLevel     Int      @default(1)
+  lastUsedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  campaigns       CampaignPhoneNumber[]
+  contactsAssigned Contact[] @relation("AssignedNumber")
+}
+
+model CampaignPhoneNumber {
+  id            String   @id @default(cuid())
+  campaignId    String
+  phoneNumberId String
+
+  campaign      Campaign  @relation(fields: [campaignId], references: [id])
+  phoneNumber   PhoneNumber @relation(fields: [phoneNumberId], references: [id])
+
+  @@unique([campaignId, phoneNumberId])
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  WARMING
+  PAUSED
+  BLOCKED
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  name       String
+  callingMode String
+  status     CampaignStatus @default(DRAFT)
+  pausedReason String?
+  templatePrimary    String?
+  templateAlternate  String?
+  batchSize          Int?
+  intervalMinutes    Int?
+  quietHoursStart    Int?    // hour 0-23
+  quietHoursEnd      Int?
+  createdAt  DateTime @default(now())
+  campaignPhoneNumbers CampaignPhoneNumber[]
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  brandId      String
+  brand        Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  direction    MessageDirection
+  status       MessageStatus
+  channel      MessageChannel
+  fromNumber   String
+  toNumber     String
+  body         String?
+  sentAt       DateTime?
+  twilioSid    String?   @unique
+  isAiGenerated Boolean @default(false)
+  aiClassification Json?
+  aiReplyDraft     String?
+  aiSentiment      String?
+  aiStatus         String?
+  aiFlags          Json?
+  aiModel          String?
+  aiReplySentAt    DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model CallLog {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  callSid    String   @unique
+  duration   Int?
+  status     String?
+  transcript String?
+  createdAt  DateTime @default(now())
+}
+
+model Contact {
+  id               String   @id @default(cuid())
+  brandId          String
+  brand            Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  firstName        String
+  lastName         String?
+  phone             String
+  lineType          String?
+  phoneType        String?
+  carrier          String?
+  country          String?
+  isPhoneValid     Boolean  @default(false)
+  propertyAddress  String?
+  propertyCity     String?
+  propertyState    String?
+  propertyZip      String?
+  propertyCounty   String?
+  mailingAddress   String?
+  mailingUnit      String?
+  mailingCity      String?
+  mailingState     String?
+  mailingZip       String?
+  mailingCounty    String?
+  assignedNumberId String?
+  assignedNumber   PhoneNumber? @relation("AssignedNumber", fields: [assignedNumberId], references: [id])
+  status           String?
+  nextEligibleAt   DateTime?
+  aiScore          Decimal?
+  tags             String[] @default([])
+  lastSmsSentAt    DateTime?
+  lastInboundAt    DateTime?
+  hasReplied       Boolean   @default(false)
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+
+  messages         Message[]
+  calls            CallLog[]
+  customFields     ContactCustomField[]
+  contactAudits    ContactAudit[]
+
+  @@index([brandId])
+  @@unique([brandId, phone])
+}
+
+model DeliverabilityScore {
+  id         String   @id @default(cuid())
+  entityType DeliverabilityEntity
+  entityId   String
+  score      Float    @default(100)
+  updatedAt  DateTime @updatedAt
+}
+
+enum DeliverabilityEntity {
+  PHONE_NUMBER
+  CAMPAIGN
+}
+
+model OrgBillingControl {
+  organizationId String  @id
+  monthlyCapUSD  Float
+  spentThisMonth Float   @default(0)
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  OUTBOUND_API
+  OUTBOUND_MANUAL
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum MessageChannel {
+  SMS
+  MANUAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum Plan {
+  STARTER
+  PRO
+}
+
+enum AiQualificationDepth {
+  LIGHT
+  STANDARD
+  FULL
+}
+
+model SendingNumber {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  phoneNumber    String   @unique
+  label          String?
+  enabled        Boolean  @default(true)
+  lastUsedAt     DateTime?
+  lastUsedCount  Int      @default(0)
+  // Number rotation fields
+  callsToday         Int @default(0)
+  shortHangupsToday  Int @default(0)
+  totalHangupsToday  Int @default(0)
+  lastResetDate      DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model CustomFieldDefinition {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+
+  values    ContactCustomField[]
+}
+
+model ContactCustomField {
+  id                String   @id @default(cuid())
+  contactId         String
+  contact           Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  fieldDefinitionId String
+  fieldDefinition   CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+  value             Json
+  createdAt         DateTime @default(now())
+
+  @@index([contactId])
+  @@index([fieldDefinitionId])
+}
+
+model ContactAudit {
+  id              String   @id @default(cuid())
+  contactId       String
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  changedByUserId String?
+  changedBy       String?
+  action          String   @default("UPDATE")
+  changes         Json
+  createdAt       DateTime @default(now())
+
+  @@index([contactId])
+}
+
+model Activity {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  type           String
+  message        String
+  meta           Json?
+  createdAt      DateTime @default(now())
+}
+
+model ComplianceAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  action         String
+  reason         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+}
+
+model OrganizationWallet {
+  id              String                 @id @default(uuid())
+  organizationId  String                 @unique
+  balanceCents    Int                    @default(0)
+  isFrozen        Boolean                @default(false)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions    WalletTransaction[]
+}
+
+model WalletTransaction {
+  id             String                 @id @default(uuid())
+  walletId       String
+  organizationId String
+  type           WalletTransactionType
+  amountCents    Int
+  referenceId    String?
+  createdAt      DateTime               @default(now())
+  wallet         OrganizationWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([walletId])
+}
+
+model OrganizationSubscription {
+  id               String               @id @default(uuid())
+  organizationId   String               @unique
+  provider         BillingProvider
+  providerSubId    String               @unique
+  planId           String
+  status           SubscriptionStatus
+  currentPeriodEnd DateTime
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+enum WalletTransactionType {
+  PAYMENT_TOPUP
+  MESSAGE_DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum BillingProvider {
+  PAYPAL
+  STRIPE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
+
+model WebhookEvent {
+  id        String   @id @default(uuid())
+  externalId String   @unique
+  type      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([type])
+}
+
+model UploadJob {
+  id               String   @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  originalFilename String
+  totalRows        Int      @default(0)
+  mobileCount      Int      @default(0)
+  landlineCount    Int      @default(0)
+  status           UploadJobStatus @default(QUEUED)
+  zipPath          String?
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model PhoneValidationCache {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  phoneType    String?
+  carrier      String?
+  country      String?
+  isValid      Boolean  @default(false)
+  lastCheckedAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([phone])
+}
+
+enum UploadJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ValidatedList {
+  id               Int      @id @default(autoincrement())
+  organizationId   String
+  fileName         String
+  totalRows        Int
+  verifiedMobile   Int      @default(0)
+  verifiedLandline Int      @default(0)
+  validatedData    String   @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// TCPA Compliance Audit Logs
+model CallEventLog {
+  id               String   @id @default(cuid())
+  organizationId   String
+  userId           String?
+  leadId           String   // Contact ID
+  phoneNumber      String
+  phoneType        String   // 'mobile' or 'landline'
+  callType         String   // 'cold' or 'warm'
+  numberUsed       String   // Sending number used
+  timestampStart   DateTime
+  timestampEnd     DateTime?
+  callOutcome      String   // 'completed', 'hangup', 'no_answer', 'busy', etc.
+  optOutTriggered  Boolean  @default(false)
+  recordingUrl     String?
+  transcript       String?
+  createdAt        DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([phoneNumber])
+}
+
+model ConsentLedger {
+  id             String   @id @default(cuid())
+  leadId         String   // Contact ID
+  organizationId String
+  consentType    String   // 'tcpacompliance', 'recording', etc.
+  source         String   // How consent was obtained
+  timestamp      DateTime
+  proofReference String?  // URL or reference to proof
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([leadId])
+  @@index([organizationId])
+}
+
+model AgreementLedger {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  termsVersion   String
+  termsVersionHash String
+  ipAddress      String
+  acceptedAt     DateTime
+  checkboxStates Json     // Store which checkboxes were checked
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// Separate number pools for different purposes
+model VoiceNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        VoiceNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  callsToday     Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+model SmsNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        SmsNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  messagesToday  Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+enum VoiceNumberPurpose {
+  LANDLINE_COLD_CALLING
+  WARM_MOBILE_CALLS
+  SUPPORT_INBOUND
+}
+
+enum SmsNumberPurpose {
+  SMS_CAMPAIGNS
+  WARM_MOBILE_FOLLOWUP
+}
+
+enum NumberStatus {
+  ACTIVE
+  COOLING_DOWN
+  BLOCKED
+  RETIRED
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+
+    // Wallet and AI feature flags
+    walletBalance        Float                     @default(0.0)
+    aiRepliesEnabled     Boolean                   @default(false)
+    aiCallsEnabled       Boolean                   @default(false)
+    aiWarmQualificationDepth AiQualificationDepth   @default(FULL)
+    aiColdQualificationDepth AiQualificationDepth   @default(FULL)
+    aiCallRecordingEnabled   Boolean                @default(false)
+    aiRecordingConsentLine   String?
+    aiMinMotivationIndicatorsForHot Int            @default(2)
+    plan                 Plan                      @default(STARTER)
+    marketplaces         String[]                  @default([])
+    areaCode             String?
+    timeZone             String?
+    pricingMarkupPercent Int                       @default(30)
+  // 10DLC Business Information
+  legalName            String?
+  dbaName              String?
+  businessType         String?
+  ein                  String?
+  address              String?
+  city                 String?
+  state                String?
+  zip                  String?
+  country              String?                   @default("United States")
+  website              String?
+  contactName          String?
+  contactEmail         String?
+  contactPhone         String?
+  businessDescription  String?
+  dlcBrandRegistered   Boolean                   @default(false)
+  dlcCampaignRegistered Boolean                  @default(false)
+
+  brands               Brand[]
+  users                User[]
+  usages               Usage[]
+  sendingNumbers       SendingNumber[]
+  activities           Activity[]
+  contacts             Contact[]
+  wallet               OrganizationWallet?
+  subscription         OrganizationSubscription?
+  uploadJobs           UploadJob[]
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  // Wallet and AI feature flags
+  walletBalance        Float                     @default(0.0)
+  aiRepliesEnabled     Boolean                   @default(false)
+  aiCallsEnabled       Boolean                   @default(false)
+  aiWarmQualificationDepth AiQualificationDepth   @default(FULL)
+  aiColdQualificationDepth AiQualificationDepth   @default(FULL)
+  aiCallRecordingEnabled   Boolean                @default(false)
+  aiRecordingConsentLine   String?
+  aiMinMotivationIndicatorsForHot Int            @default(2)
+  plan                 Plan                      @default(STARTER)
+  marketplaces         String[]                  @default([])
+  areaCode             String?
+  timeZone             String?
+  pricingMarkupPercent Int                       @default(30)
+
+  // 10DLC Business Information
+  legalName            String?
+  dbaName              String?
+  businessType         String?
+  ein                  String?
+  address              String?
+  city                 String?
+  state                String?
+  zip                  String?
+  country              String?                   @default("United States")
+  website              String?
+  contactName          String?
+  contactEmail         String?
+  contactPhone         String?
+  businessDescription  String?
+  dlcBrandRegistered   Boolean                   @default(false)
+  dlcCampaignRegistered Boolean                  @default(false)
+
+  brands               Brand[]
+  users                User[]
+  usages               Usage[]
+  sendingNumbers       SendingNumber[]
+  activities           Activity[]
+  contacts             Contact[]
+  wallet               OrganizationWallet?
+  subscription         OrganizationSubscription?
+  uploadJobs           UploadJob[]
+}
+
+model Usage {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String
+  cost           Float
+  createdAt      DateTime @default(now())
+}
+
+model Brand {
+  id                   String   @id @default(cuid())
+  orgId                String
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name                 String
+  twilioSubaccountSid  String?
+  subaccountAuthToken  String?
+  twilioTwiMLAppSid    String?
+  areaCode             String?
+  callingMode          String
+  aiVoicePlatformUrl   String?
+  createdAt            DateTime @default(now())
+
+  users                User[]
+  phoneNumbers         PhoneNumber[]
+  campaigns            Campaign[]
+  contacts             Contact[]
+  messages             Message[]
+  calls                CallLog[]
+  customFieldDefs      CustomFieldDefinition[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  activeBrandId String?
+  activeBrand   Brand?   @relation(fields: [activeBrandId], references: [id])
+  username      String   @unique
+  email         String?
+  passwordHash  String?
+  createdAt     DateTime @default(now())
+
+  campaigns     Campaign[]
+}
+
+model PhoneNumber {
+  id              String   @id @default(cuid())
+  organizationId  String
+  brandId         String?
+  brand           Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  twilioSid       String   @unique
+  phoneNumber     String   @unique
+  status          PhoneNumberStatus @default(ACTIVE)
+  warmupLevel     Int      @default(1)
+  lastUsedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  campaigns       CampaignPhoneNumber[]
+  contactsAssigned Contact[] @relation("AssignedNumber")
+}
+
+model CampaignPhoneNumber {
+  id            String   @id @default(cuid())
+  campaignId    String
+  phoneNumberId String
+
+  campaign      Campaign  @relation(fields: [campaignId], references: [id])
+  phoneNumber   PhoneNumber @relation(fields: [phoneNumberId], references: [id])
+
+  @@unique([campaignId, phoneNumberId])
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  WARMING
+  PAUSED
+  BLOCKED
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  name       String
+  callingMode String
+  status     CampaignStatus @default(DRAFT)
+  pausedReason String?
+  templatePrimary    String?
+  templateAlternate  String?
+  batchSize          Int?
+  intervalMinutes    Int?
+  quietHoursStart    Int?    // hour 0-23
+  quietHoursEnd      Int?
+  createdAt  DateTime @default(now())
+  campaignPhoneNumbers CampaignPhoneNumber[]
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  brandId      String
+  brand        Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  direction    MessageDirection
+  status       MessageStatus
+  channel      MessageChannel
+  fromNumber   String
+  toNumber     String
+  body         String?
+  sentAt       DateTime?
+  twilioSid    String?   @unique
+  isAiGenerated Boolean @default(false)
+  aiClassification Json?
+  aiReplyDraft     String?
+  aiSentiment      String?
+  aiStatus         String?
+  aiFlags          Json?
+  aiModel          String?
+  aiReplySentAt    DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model CallLog {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  callSid    String   @unique
+  duration   Int?
+  status     String?
+  transcript String?
+  createdAt  DateTime @default(now())
+}
+
+model Contact {
+  id               String   @id @default(cuid())
+  brandId          String
+  brand            Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  firstName        String
+  lastName         String?
+  phone             String
+  lineType          String?
+  phoneType        String?
+  carrier          String?
+  country          String?
+  isPhoneValid     Boolean  @default(false)
+  propertyAddress  String?
+  propertyCity     String?
+  propertyState    String?
+  propertyZip       String?
+  propertyCounty   String?
+  mailingAddress   String?
+  mailingUnit      String?
+  mailingCity      String?
+  mailingState     String?
+  mailingZip       String?
+  mailingCounty    String?
+  assignedNumberId String?
+  assignedNumber   PhoneNumber? @relation("AssignedNumber", fields: [assignedNumberId], references: [id])
+  status           String?
+  nextEligibleAt   DateTime?
+  aiScore          Decimal?
+  tags             String[] @default([])
+  lastSmsSentAt    DateTime?
+  lastInboundAt    DateTime?
+  hasReplied       Boolean   @default(false)
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+
+  messages         Message[]
+  calls            CallLog[]
+  customFields     ContactCustomField[]
+  contactAudits    ContactAudit[]
+
+  @@index([brandId])
+  @@unique([brandId, phone])
+}
+
+model DeliverabilityScore {
+  id         String   @id @default(cuid())
+  entityType DeliverabilityEntity
+  entityId   String
+  score      Float    @default(100)
+  updatedAt  DateTime @updatedAt
+}
+
+enum DeliverabilityEntity {
+  PHONE_NUMBER
+  CAMPAIGN
+}
+
+model OrgBillingControl {
+  organizationId String  @id
+  monthlyCapUSD  Float
+  spentThisMonth Float   @default(0)
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  OUTBOUND_API
+  OUTBOUND_MANUAL
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum MessageChannel {
+  SMS
+  MANUAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum Plan {
+  STARTER
+  PRO
+}
+
+enum AiQualificationDepth {
+  LIGHT
+  STANDARD
+  FULL
+}
+
+model SendingNumber {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  phoneNumber    String   @unique
+  label          String?
+  enabled        Boolean  @default(true)
+  lastUsedAt     DateTime?
+  lastUsedCount  Int      @default(0)
+  // Number rotation fields
+  callsToday         Int @default(0)
+  shortHangupsToday  Int @default(0)
+  totalHangupsToday  Int @default(0)
+  lastResetDate      DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model CustomFieldDefinition {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+
+  values    ContactCustomField[]
+}
+
+model ContactCustomField {
+  id                String   @id @default(cuid())
+  contactId         String
+  contact           Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  fieldDefinitionId String
+  fieldDefinition   CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+  value             Json
+  createdAt         DateTime @default(now())
+
+  @@index([contactId])
+  @@index([fieldDefinitionId])
+}
+
+model ContactAudit {
+  id              String   @id @default(cuid())
+  contactId       String
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  changedByUserId String?
+  changedBy       String?
+  action          String   @default("UPDATE")
+  changes         Json
+  createdAt       DateTime @default(now())
+
+  @@index([contactId])
+}
+
+model Activity {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  type           String
+  message        String
+  meta           Json?
+  createdAt      DateTime @default(now())
+}
+
+model ComplianceAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  action         String
+  reason         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  name       String
+  callingMode String
+  status     CampaignStatus @default(DRAFT)
+  pausedReason String?
+  templatePrimary    String?
+  templateAlternate  String?
+  batchSize          Int?
+  intervalMinutes    Int?
+  quietHoursStart    Int?    // hour 0-23
+  quietHoursEnd      Int?
+  createdAt  DateTime @default(now())
+  campaignPhoneNumbers CampaignPhoneNumber[]
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  brandId      String
+  brand        Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  direction    MessageDirection
+  status       MessageStatus
+  channel      MessageChannel
+  fromNumber   String
+  toNumber     String
+  body         String?
+  sentAt       DateTime?
+  twilioSid    String?   @unique
+  isAiGenerated Boolean @default(false)
+  aiClassification Json?
+  aiReplyDraft     String?
+  aiSentiment      String?
+  aiStatus         String?
+  aiFlags          Json?
+  aiModel          String?
+  aiReplySentAt    DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model CallLog {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  callSid    String   @unique
+  duration   Int?
+  status     String?
+  transcript String?
+  createdAt  DateTime @default(now())
+}
+
+model Contact {
+  id               String   @id @default(cuid())
+  brandId          String
+  brand            Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  firstName        String
+  lastName         String?
+  phone             String
+  lineType          String?
+  phoneType        String?
+  carrier          String?
+  country          String?
+  isPhoneValid     Boolean  @default(false)
+  propertyAddress  String?
+  propertyCity     String?
+  propertyState    String?
+  propertyZip      String?
+  propertyCounty   String?
+  mailingAddress   String?
+  mailingUnit      String?
+  mailingCity      String?
+  mailingState     String?
+  mailingZip       String?
+  mailingCounty    String?
+  assignedNumberId String?
+  assignedNumber   PhoneNumber? @relation("AssignedNumber", fields: [assignedNumberId], references: [id])
+  status           String?
+  nextEligibleAt   DateTime?
+  aiScore          Decimal?
+  tags             String[] @default([])
+  lastSmsSentAt    DateTime?
+  lastInboundAt    DateTime?
+  hasReplied       Boolean   @default(false)
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+
+  messages         Message[]
+  calls            CallLog[]
+  customFields     ContactCustomField[]
+  contactAudits    ContactAudit[]
+
+  @@index([brandId])
+  @@unique([brandId, phone])
+}
+
+model DeliverabilityScore {
+  id         String   @id @default(cuid())
+  entityType DeliverabilityEntity
+  entityId   String
+  score      Float    @default(100)
+  updatedAt  DateTime @updatedAt
+}
+
+enum DeliverabilityEntity {
+  PHONE_NUMBER
+  CAMPAIGN
+}
+
+model OrgBillingControl {
+  organizationId String  @id
+  monthlyCapUSD  Float
+  spentThisMonth Float   @default(0)
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  OUTBOUND_API
+  OUTBOUND_MANUAL
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum MessageChannel {
+  SMS
+  MANUAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum Plan {
+  STARTER
+  PRO
+}
+
+enum AiQualificationDepth {
+  LIGHT
+  STANDARD
+  FULL
+}
+
+model SendingNumber {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  phoneNumber    String   @unique
+  label          String?
+  enabled        Boolean  @default(true)
+  lastUsedAt     DateTime?
+  lastUsedCount  Int      @default(0)
+  // Number rotation fields
+  callsToday         Int @default(0)
+  shortHangupsToday  Int @default(0)
+  totalHangupsToday  Int @default(0)
+  lastResetDate      DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model CustomFieldDefinition {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+
+  values    ContactCustomField[]
+}
+
+model ContactCustomField {
+  id                String   @id @default(cuid())
+  contactId         String
+  contact           Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  fieldDefinitionId String
+  fieldDefinition   CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+  value             Json
+  createdAt         DateTime @default(now())
+
+  @@index([contactId])
+  @@index([fieldDefinitionId])
+}
+
+model ContactAudit {
+  id              String   @id @default(cuid())
+  contactId       String
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  changedByUserId String?
+  changedBy       String?
+  action          String   @default("UPDATE")
+  changes         Json
+  createdAt       DateTime @default(now())
+
+  @@index([contactId])
+}
+
+model Activity {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  type           String
+  message        String
+  meta           Json?
+  createdAt      DateTime @default(now())
+}
+
+model ComplianceAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  action         String
+  reason         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+}
+
+model OrganizationWallet {
+  id              String                 @id @default(uuid())
+  organizationId  String                 @unique
+  balanceCents    Int                    @default(0)
+  isFrozen        Boolean                @default(false)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions    WalletTransaction[]
+}
+
+model WalletTransaction {
+  id             String                 @id @default(uuid())
+  walletId       String
+  organizationId String
+  type           WalletTransactionType
+  amountCents    Int
+  referenceId    String?
+  createdAt      DateTime               @default(now())
+  wallet         OrganizationWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([walletId])
+}
+
+model OrganizationSubscription {
+  id               String               @id @default(uuid())
+  organizationId   String               @unique
+  provider         BillingProvider
+  providerSubId    String               @unique
+  planId           String
+  status           SubscriptionStatus
+  currentPeriodEnd DateTime
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+enum WalletTransactionType {
+  PAYMENT_TOPUP
+  MESSAGE_DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum BillingProvider {
+  PAYPAL
+  STRIPE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
+
+model WebhookEvent {
+  id        String   @id @default(uuid())
+  externalId String   @unique
+  type      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([type])
+}
+
+model UploadJob {
+  id               String   @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  originalFilename String
+  totalRows        Int      @default(0)
+  mobileCount      Int      @default(0)
+  landlineCount    Int      @default(0)
+  status           UploadJobStatus @default(QUEUED)
+  zipPath          String?
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model PhoneValidationCache {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  phoneType    String?
+  carrier      String?
+  country      String?
+  isValid      Boolean  @default(false)
+  lastCheckedAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([phone])
+}
+
+enum UploadJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ValidatedList {
+  id               Int      @id @default(autoincrement())
+  organizationId   String
+  fileName         String
+  totalRows        Int
+  verifiedMobile   Int      @default(0)
+  verifiedLandline Int      @default(0)
+  validatedData    String   @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// TCPA Compliance Audit Logs
+model CallEventLog {
+  id               String   @id @default(cuid())
+  organizationId   String
+  userId           String?
+  leadId           String   // Contact ID
+  phoneNumber      String
+  phoneType        String   // 'mobile' or 'landline'
+  callType         String   // 'cold' or 'warm'
+  numberUsed       String   // Sending number used
+  timestampStart   DateTime
+  timestampEnd     DateTime?
+  callOutcome      String   // 'completed', 'hangup', 'no_answer', 'busy', etc.
+  optOutTriggered  Boolean  @default(false)
+  recordingUrl     String?
+  transcript       String?
+  createdAt        DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([phoneNumber])
+}
+
+model ConsentLedger {
+  id             String   @id @default(cuid())
+  leadId         String   // Contact ID
+  organizationId String
+  consentType    String   // 'tcpacompliance', 'recording', etc.
+  source         String   // How consent was obtained
+  timestamp      DateTime
+  proofReference String?  // URL or reference to proof
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([leadId])
+  @@index([organizationId])
+}
+
+model AgreementLedger {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  termsVersion   String
+  termsVersionHash String
+  ipAddress      String
+  acceptedAt     DateTime
+  checkboxStates Json     // Store which checkboxes were checked
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// Separate number pools for different purposes
+model VoiceNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        VoiceNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  callsToday     Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+model SmsNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        SmsNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  messagesToday  Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+enum VoiceNumberPurpose {
+  LANDLINE_COLD_CALLING
+  WARM_MOBILE_CALLS
+  SUPPORT_INBOUND
+}
+
+enum SmsNumberPurpose {
+  SMS_CAMPAIGNS
+  WARM_MOBILE_FOLLOWUP
+}
+
+enum NumberStatus {
+  ACTIVE
+  COOLING_DOWN
+  BLOCKED
+  RETIRED
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  // Wallet and AI feature flags
+  walletBalance        Float                     @default(0.0)
+  aiRepliesEnabled     Boolean                   @default(false)
+  aiCallsEnabled       Boolean                   @default(false)
+  aiWarmQualificationDepth AiQualificationDepth   @default(FULL)
+  aiColdQualificationDepth AiQualificationDepth   @default(FULL)
+  aiCallRecordingEnabled   Boolean                @default(false)
+  aiRecordingConsentLine   String?
+  aiMinMotivationIndicatorsForHot Int            @default(2)
+  plan                 Plan                      @default(STARTER)
+  marketplaces         String[]                  @default([])
+  areaCode             String?
+  timeZone             String?
+  pricingMarkupPercent Int                       @default(30)
+
+  // 10DLC Business Information
+  legalName            String?
+  dbaName              String?
+  businessType         String?
+  ein                  String?
+  address              String?
+  city                 String?
+  state                String?
+  zip                  String?
+  country              String?                   @default("United States")
+  website              String?
+  contactName          String?
+  contactEmail         String?
+  contactPhone         String?
+  businessDescription  String?
+  dlcBrandRegistered   Boolean                   @default(false)
+  dlcCampaignRegistered Boolean                  @default(false)
+
+  brands               Brand[]
+  users                User[]
+  usages               Usage[]
+  sendingNumbers       SendingNumber[]
+  activities           Activity[]
+  contacts             Contact[]
+  wallet               OrganizationWallet?
+  subscription         OrganizationSubscription?
+  uploadJobs           UploadJob[]
+}
+
+model Usage {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String
+  cost           Float
+  createdAt      DateTime @default(now())
+}
+
+model Brand {
+  id                   String   @id @default(cuid())
+  orgId                String
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name                 String
+  twilioSubaccountSid  String?
+  subaccountAuthToken  String?
+  twilioTwiMLAppSid    String?
+  areaCode             String?
+  callingMode          String
+  aiVoicePlatformUrl   String?
+  createdAt            DateTime @default(now())
+
+  users                User[]
+  phoneNumbers         PhoneNumber[]
+  campaigns            Campaign[]
+  contacts             Contact[]
+  messages             Message[]
+  calls                CallLog[]
+  customFieldDefs      CustomFieldDefinition[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  activeBrandId String?
+  activeBrand   Brand?   @relation(fields: [activeBrandId], references: [id])
+  username      String   @unique
+  email         String?
+  passwordHash  String?
+  createdAt     DateTime @default(now())
+
+  campaigns     Campaign[]
+}
+
+model PhoneNumber {
+  id              String   @id @default(cuid())
+  organizationId  String
+  brandId         String?
+  brand           Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  twilioSid       String   @unique
+  phoneNumber     String   @unique
+  status          PhoneNumberStatus @default(ACTIVE)
+  warmupLevel     Int      @default(1)
+  lastUsedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  campaigns       CampaignPhoneNumber[]
+  contactsAssigned Contact[] @relation("AssignedNumber")
+}
+
+
+model DeliverabilityScore {
+  id         String   @id @default(cuid())
+  entityType DeliverabilityEntity
+  entityId   String
+  score      Float    @default(100)
+  updatedAt  DateTime @updatedAt
+}
+
+enum DeliverabilityEntity {
+  PHONE_NUMBER
+  CAMPAIGN
+}
+
+model OrgBillingControl {
+  organizationId String  @id
+  monthlyCapUSD  Float
+  spentThisMonth Float   @default(0)
+}
+
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  OUTBOUND_API
+  OUTBOUND_MANUAL
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum MessageChannel {
+  SMS
+  MANUAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum Plan {
+  STARTER
+  PRO
+}
+
+enum AiQualificationDepth {
+  LIGHT
+  STANDARD
+  FULL
+}
+
+model SendingNumber {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  phoneNumber    String   @unique
+  label          String?
+  enabled        Boolean  @default(true)
+  lastUsedAt     DateTime?
+  lastUsedCount  Int      @default(0)
+  // Number rotation fields
+  callsToday         Int @default(0)
+  shortHangupsToday  Int @default(0)
+  totalHangupsToday  Int @default(0)
+  lastResetDate      DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model CustomFieldDefinition {
+  id        String   @id @default(cuid())
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+
+  values    ContactCustomField[]
+}
+
+model ContactCustomField {
+  id                String   @id @default(cuid())
+  contactId         String
+  contact           Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  fieldDefinitionId String
+  fieldDefinition   CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+  value             Json
+  createdAt         DateTime @default(now())
+
+  @@index([contactId])
+  @@index([fieldDefinitionId])
+}
+
+model ContactAudit {
+  id              String   @id @default(cuid())
+  contactId       String
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  changedByUserId String?
+  changedBy       String?
+  action          String   @default("UPDATE")
+  changes         Json
+  createdAt       DateTime @default(now())
+
+  @@index([contactId])
+}
+
+model Activity {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  type           String
+  message        String
+  meta           Json?
+  createdAt      DateTime @default(now())
+}
+
+model ComplianceAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  action         String
+  reason         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+}
+
+model OrganizationWallet {
+  id              String                 @id @default(uuid())
+  organizationId  String                 @unique
+  balanceCents    Int                    @default(0)
+  isFrozen        Boolean                @default(false)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions    WalletTransaction[]
+}
+
+model WalletTransaction {
+  id             String                 @id @default(uuid())
+  walletId       String
+  organizationId String
+  type           WalletTransactionType
+  amountCents    Int
+  referenceId    String?
+  createdAt      DateTime               @default(now())
+  wallet         OrganizationWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([walletId])
+}
+
+model OrganizationSubscription {
+  id               String               @id @default(uuid())
+  organizationId   String               @unique
+  provider         BillingProvider
+  providerSubId    String               @unique
+  planId           String
+  status           SubscriptionStatus
+  currentPeriodEnd DateTime
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+enum WalletTransactionType {
+  PAYMENT_TOPUP
+  MESSAGE_DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum BillingProvider {
+  PAYPAL
+  STRIPE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
+
+model WebhookEvent {
+  id        String   @id @default(uuid())
+  externalId String   @unique
+  type      String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([type])
+}
+
+model UploadJob {
+  id               String   @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  originalFilename String
+  totalRows        Int      @default(0)
+  mobileCount      Int      @default(0)
+  landlineCount    Int      @default(0)
+  status           UploadJobStatus @default(QUEUED)
+  zipPath          String?
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model PhoneValidationCache {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  phoneType    String?
+  carrier      String?
+  country      String?
+  isValid      Boolean  @default(false)
+  lastCheckedAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([phone])
+}
+
+enum UploadJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ValidatedList {
+  id               Int      @id @default(autoincrement())
+  organizationId   String
+  fileName         String
+  totalRows        Int
+  verifiedMobile   Int      @default(0)
+  verifiedLandline Int      @default(0)
+  validatedData    String   @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// TCPA Compliance Audit Logs
+model CallEventLog {
+  id               String   @id @default(cuid())
+  organizationId   String
+  userId           String?
+  leadId           String   // Contact ID
+  phoneNumber      String
+  phoneType        String   // 'mobile' or 'landline'
+  callType         String   // 'cold' or 'warm'
+  numberUsed       String   // Sending number used
+  timestampStart   DateTime
+  timestampEnd     DateTime?
+  callOutcome      String   // 'completed', 'hangup', 'no_answer', 'busy', etc.
+  optOutTriggered  Boolean  @default(false)
+  recordingUrl     String?
+  transcript       String?
+  createdAt        DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([phoneNumber])
+}
+
+model ConsentLedger {
+  id             String   @id @default(cuid())
+  leadId         String   // Contact ID
+  organizationId String
+  consentType    String   // 'tcpacompliance', 'recording', etc.
+  source         String   // How consent was obtained
+  timestamp      DateTime
+  proofReference String?  // URL or reference to proof
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  @@index([leadId])
+  @@index([organizationId])
+}
+
+model AgreementLedger {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  termsVersion   String
+  termsVersionHash String
+  ipAddress      String
+  acceptedAt     DateTime
+  checkboxStates Json     // Store which checkboxes were checked
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// Separate number pools for different purposes
+model VoiceNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        VoiceNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  callsToday     Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+model SmsNumberPool {
+  id             String   @id @default(cuid())
+  organizationId String
+  phoneNumber    String   @unique
+  purpose        SmsNumberPurpose
+  status         NumberStatus @default(ACTIVE)
+  messagesToday  Int      @default(0)
+  lastResetDate  DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([purpose])
+}
+
+enum VoiceNumberPurpose {
+  LANDLINE_COLD_CALLING
+  WARM_MOBILE_CALLS
+  SUPPORT_INBOUND
+}
+
+enum SmsNumberPurpose {
+  SMS_CAMPAIGNS
+  WARM_MOBILE_FOLLOWUP
+}
+
+enum NumberStatus {
+  ACTIVE
+  COOLING_DOWN
+  BLOCKED
+  RETIRED
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  // Wallet and AI feature flags
+  walletBalance        Float                     @default(0.0)
+  aiRepliesEnabled     Boolean                   @default(false)
+  aiCallsEnabled       Boolean                   @default(false)
+  aiWarmQualificationDepth AiQualificationDepth   @default(FULL)
+  aiColdQualificationDepth AiQualificationDepth   @default(FULL)
+  aiCallRecordingEnabled   Boolean                @default(false)
+  aiRecordingConsentLine   String?
+  aiMinMotivationIndicatorsForHot Int            @default(2)
+  plan                 Plan                      @default(STARTER)
+  marketplaces         String[]                  @default([])
+  areaCode             String?
+  timeZone             String?
+  pricingMarkupPercent Int                       @default(30)
+
+  // 10DLC Business Information
+  legalName            String?
+  dbaName              String?
+  businessType         String?
+  ein                  String?
+  address              String?
+  city                 String?
+  state                String?
+  zip                  String?
+  country              String?                   @default("United States")
+  website              String?
+  contactName          String?
+  contactEmail         String?
+  contactPhone         String?
+  businessDescription  String?
+  dlcBrandRegistered   Boolean                   @default(false)
+  dlcCampaignRegistered Boolean                  @default(false)
+
+  brands               Brand[]
+  users                User[]
+  usages               Usage[]
+  sendingNumbers       SendingNumber[]
+  activities           Activity[]
+  contacts             Contact[]
+  wallet               OrganizationWallet?
+  subscription         OrganizationSubscription?
+  uploadJobs           UploadJob[]
+}
+
+model Usage {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String
+  cost           Float
+  createdAt      DateTime @default(now())
+}
+
+model Brand {
+  id                   String   @id @default(cuid())
+  orgId                String
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name                 String
+  twilioSubaccountSid  String?
+  subaccountAuthToken  String?
+  twilioTwiMLAppSid    String?
+  areaCode             String?
+  callingMode          String
+  aiVoicePlatformUrl   String?
+  createdAt            DateTime @default(now())
+
+  users                User[]
+  phoneNumbers         PhoneNumber[]
+  campaigns            Campaign[]
+  contacts             Contact[]
+  messages             Message[]
+  calls                CallLog[]
+  customFieldDefs      CustomFieldDefinition[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  activeBrandId String?
+  activeBrand   Brand?   @relation(fields: [activeBrandId], references: [id])
+  username      String   @unique
+  email         String?
+  passwordHash  String?
+  createdAt     DateTime @default(now())
+
+  campaigns     Campaign[]
+}
+
+model PhoneNumber {
+  id              String   @id @default(cuid())
+  organizationId  String
+  brandId         String?
+  brand           Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  twilioSid       String   @unique
+  phoneNumber     String   @unique
+  status          PhoneNumberStatus @default(ACTIVE)
+  warmupLevel     Int      @default(1)
+  lastUsedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  campaigns       CampaignPhoneNumber[]
+  contactsAssigned Contact[] @relation("AssignedNumber")
+}
+
+model CampaignPhoneNumber {
+  id            String   @id @default(cuid())
+  campaignId    String
+  phoneNumberId String
+
+  campaign      Campaign  @relation(fields: [campaignId], references: [id])
+  phoneNumber   PhoneNumber @relation(fields: [phoneNumberId], references: [id])
+
+  @@unique([campaignId, phoneNumberId])
+}
+
+enum PhoneNumberStatus {
+  ACTIVE
+  WARMING
+  PAUSED
+  BLOCKED
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  name       String
+  callingMode String
+  status     CampaignStatus @default(DRAFT)
+  pausedReason String?
+  templatePrimary    String?
+  templateAlternate  String?
+  batchSize          Int?
+  intervalMinutes    Int?
+  quietHoursStart    Int?    // hour 0-23
+  quietHoursEnd      Int?
+  createdAt  DateTime @default(now())
+  campaignPhoneNumbers CampaignPhoneNumber[]
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  brandId      String
+  brand        Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  direction    MessageDirection
+  status       MessageStatus
+  channel      MessageChannel
+  fromNumber   String
+  toNumber     String
+  body         String?
+  sentAt       DateTime?
+  twilioSid    String?   @unique
+  isAiGenerated Boolean @default(false)
+  aiClassification Json?
+  aiReplyDraft     String?
+  aiSentiment      String?
+  aiStatus         String?
+  aiFlags          Json?
+  aiModel          String?
+  aiReplySentAt    DateTime?
+  createdAt    DateTime @default(now())
+}
+
+model CallLog {
+  id         String   @id @default(cuid())
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  callSid    String   @unique
+  duration   Int?
+  status     String?
+  transcript String?
+  createdAt  DateTime @default(now())
+}
+
+model Contact {
+  id               String   @id @default(cuid())
+  brandId          String
+  brand            Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  firstName        String
+  lastName         String?
+  phone             String
+  lineType          String?
+  phoneType        String?
+  carrier          String?
+  country          String?
+  isPhoneValid     Boolean  @default(false)
+  propertyAddress  String?
+  propertyCity     String?
+  propertyState    String?
+  propertyZip      String?
+  propertyCounty   String?
+  mailingAddress   String?
+  mailingUnit      String?
+  mailingCity      String?
+  mailingState     String?
+  mailingZip       String?
+  mailingCounty    String?
+  assignedNumberId String?
+  assignedNumber   PhoneNumber? @relation("AssignedNumber", fields: [assignedNumberId], references: [id])
+  status           String?
+  nextEligibleAt   DateTime?
+  aiScore          Decimal?
+  tags             String[] @default([])
+  lastSmsSentAt    DateTime?
+  lastInboundAt    DateTime?
+  hasReplied       Boolean   @default(false)
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+
+  messages         Message[]
+  calls            CallLog[]
+  customFields     ContactCustomField[]
+  contactAudits    ContactAudit[]
+
+  @@index([brandId])
+  @@unique([brandId, phone])
+}
+
+model DeliverabilityScore {
+  id         String   @id @default(cuid())
+  entityType DeliverabilityEntity
+  entityId   String
+  score      Float    @default(100)
+  updatedAt  DateTime @updatedAt
+}
+
+enum DeliverabilityEntity {
+  PHONE_NUMBER
+  CAMPAIGN
+}
+
+model OrgBillingControl {
+  organizationId String  @id
+  monthlyCapUSD  Float
+  spentThisMonth Float   @default(0)
+}
+

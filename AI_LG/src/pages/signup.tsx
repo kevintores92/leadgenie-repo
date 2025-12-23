@@ -146,7 +146,7 @@ export default function SignUp() {
               </button>
             </div>
 
-            {authMode === 'signin' ? (
+                      {authMode === 'signin' ? (
               <div className="glass-card p-8 rounded-2xl max-w-md mx-auto">
                 <h2 className="text-2xl font-bold mb-4">Sign In</h2>
                 {error && (
@@ -174,6 +174,32 @@ export default function SignUp() {
               </div>
             ) : (
               <>
+                {/* Dev-bypass: quick button to get a dev token and jump to campaigns. Visible when URL has ?dev=1 or on localhost. */}
+                {typeof window !== 'undefined' && (window.location.search.includes('dev=1') || window.location.hostname.includes('localhost')) && (
+                  <div className="max-w-md mx-auto mb-4 text-center">
+                    <button
+                      type="button"
+                      className="text-xs underline text-muted-foreground"
+                      onClick={async () => {
+                        try {
+                          const resp = await fetch('/admin/dev-login', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                          if (!resp.ok) throw new Error('dev login failed');
+                          const json = await resp.json();
+                          if (json.token) {
+                            try { localStorage.setItem('token', json.token); } catch(_) {}
+                            window.location.href = json.redirect || '/campaigns';
+                          } else {
+                            setError('Dev login did not return a token');
+                          }
+                        } catch (e: any) {
+                          setError(e?.message || 'Dev bypass failed');
+                        }
+                      }}
+                    >
+                      Skip signup (dev)
+                    </button>
+                  </div>
+                )}
                 {step === 'account' ? (
                   <div className="glass-card p-8 rounded-2xl max-w-md mx-auto">
                     <div className="flex justify-center mb-6">
