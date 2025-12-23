@@ -135,7 +135,7 @@ router.post('/login', async (req, res) => {
 
 // Simple signup stub (creates a user for dev). Returns redirect to dashboard.
 router.post('/signup', async (req, res) => {
-  const { username, email, password, organizationName, areaCode, timeZone } = req.body || {};
+  const { username, email, password, organizationName, areaCode, timeZone, subscriptionId, subscriptionProvider, planId } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'missing username or password' });
 
   // create user if not exists
@@ -145,7 +145,7 @@ router.post('/signup', async (req, res) => {
   const hash = await bcrypt.hash(String(password), 10);
 
   // Create core records (org/user/brand/wallet/subscription) first.
-  const created = await prisma.$transaction(async (tx) => {
+    const created = await prisma.$transaction(async (tx) => {
     const org = await tx.organization.create({
       data: {
         name: organizationName || `${username}'s Organization`,
@@ -155,6 +155,25 @@ router.post('/signup', async (req, res) => {
         aiCallsEnabled: false,
       },
     });
+
+    // If the frontend provided a subscriptionId (from PayPal), record it.
+    if (subscriptionId) {
+      try {
+        await prisma.organizationSubscription.create({
+          data: {
+            organizationId: created.org.id,
+            provider: subscriptionProvider === 'STRIPE' ? 'STRIPE' : 'PAYPAL',
+            providerSubId: subscriptionId,
+            planId: planId || 'default',
+            status: 'ACTIVE',
+            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+          }
+        });
+      } catch (e) {
+        // ignore subscription creation errors for now, but log
+        console.error('Failed to create OrganizationSubscription', e && e.message);
+      }
+    }
 
     const user = await tx.user.create({
       data: {

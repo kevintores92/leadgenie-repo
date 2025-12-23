@@ -52,11 +52,13 @@ export default function SignUp() {
     setLoading(true);
     
     try {
-      // Create account after subscription approval
-      await api.signup(email, password, businessName);
-      // Store subscription ID
-      localStorage.setItem('paypal_subscription_id', subscriptionId);
-      navigate("/business-info");
+      // Create account after subscription approval and attach subscription
+      await api.signup(email, password, businessName, subscriptionId, 'PAYPAL');
+      // Store subscription ID locally
+      try { localStorage.setItem('paypal_subscription_id', subscriptionId); } catch (_) {}
+      // Flag for showing a success message on the Business Info page
+      try { localStorage.setItem('signup_success', 'true'); } catch(_) {}
+      navigate("/register");
     } catch (err: any) {
       setError(err.message || "Signup failed. Please try again.");
     } finally {
@@ -211,7 +213,7 @@ export default function SignUp() {
                   disabled={loading}
                   className="w-full h-11 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold mt-6"
                 >
-                  {loading ? "Sending Code..." : "Continue to Verification"}
+                  {loading ? "Processing..." : "Continue to Subscription"}
                 </Button>
               </form>
 

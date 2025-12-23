@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,20 @@ export default function BusinessInfo() {
   const [error, setError] = useState("");
   const [, navigate] = useLocation();
 
+  const [signupSuccess, setSignupSuccess] = useState(false);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('signup_success');
+      if (v === 'true') {
+        setSignupSuccess(true);
+        localStorage.removeItem('signup_success');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -101,6 +115,12 @@ export default function BusinessInfo() {
               <p className="text-muted-foreground">Complete your profile for A2P 10DLC Registration</p>
             </div>
           </div>
+
+          {signupSuccess && (
+            <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+              Account created successfully! Please complete your Business Info for 10DLC registration.
+            </div>
+          )}
 
           {/* Error Display */}
           {error && (

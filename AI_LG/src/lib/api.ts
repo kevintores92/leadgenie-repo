@@ -51,15 +51,22 @@ export async function login(email: string, password: string) {
   return data;
 }
 
-export async function signup(email: string, password: string, businessName: string) {
+export async function signup(email: string, password: string, businessName: string, subscriptionId?: string, subscriptionProvider?: string, planId?: string) {
+  const body: any = {
+    username: email.split('@')[0], // Use email prefix as username
+    email,
+    password,
+    organizationName: businessName
+  };
+  if (subscriptionId) {
+    body.subscriptionId = subscriptionId;
+    if (subscriptionProvider) body.subscriptionProvider = subscriptionProvider;
+    if (planId) body.planId = planId;
+  }
+
   const data = await apiRequest('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ 
-      username: email.split('@')[0], // Use email prefix as username
-      email, 
-      password, 
-      organizationName: businessName 
-    }),
+    body: JSON.stringify(body),
   });
   
   if (data.token) {
