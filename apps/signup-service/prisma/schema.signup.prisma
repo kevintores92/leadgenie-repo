@@ -7,11 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Plan { STARTER PRO }
+enum Plan {
+  STARTER
+  PRO
+}
 
-enum BillingProvider { PAYPAL STRIPE }
+enum BillingProvider {
+  PAYPAL
+  STRIPE
+}
 
-enum SubscriptionStatus { ACTIVE PAST_DUE CANCELED SUSPENDED }
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
 
 model Organization {
   id        String   @id @default(cuid())
@@ -32,8 +43,6 @@ model Brand {
   twilioSubaccountSid String?
   subaccountAuthToken String?
   createdAt DateTime @default(now())
-
-  users User[]
 }
 
 model User {
