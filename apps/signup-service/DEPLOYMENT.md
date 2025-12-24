@@ -29,9 +29,14 @@ Make sure any `TWILIO_*` / `PAYPAL_*` values are the production credentials you 
 
 6. Database migrations
 - Ensure the database schema is applied. On the Railway service deploy you can either run a migration step or use Prisma's `migrate deploy` during build.
-- Example: add a build step or run in a one-off terminal:
+- This service uses a trimmed schema file `prisma/schema.signup.prisma`.
+- Recommended build step (Railway):
 
-  npx prisma migrate deploy --schema=./prisma/schema.prisma
+  npm install && npm run prisma:generate
+
+- To run migrations once the DB is attached (example):
+
+  npx prisma migrate deploy --schema=./prisma/schema.signup.prisma
 
 7. Deploy: Railway will build and start the service. Verify `signup-service` health at `/health`.
 
@@ -52,7 +57,7 @@ Railway CLI examples
 
 - Open a one-off shell on the service to run migrations:
 
-  railway run -- service <service-id> -- "npx prisma migrate deploy --schema=./prisma/schema.prisma"
+  railway run -- service <service-id> -- "npx prisma migrate deploy --schema=./prisma/schema.signup.prisma"
 
 Notes
 - Do not rely on local files on your laptop for production. Railway must hold all runtime secrets.

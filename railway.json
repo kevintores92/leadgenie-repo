@@ -78,7 +78,7 @@
       "rootDirectory": "apps/signup-service",
       "builder": "NODE",
       "startCommand": "npm start",
-      "buildCommand": "npm install && npx prisma generate",
+      "buildCommand": "npm install --omit=dev && npm run prisma:generate",
       "variables": {
         "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
         "JWT_SECRET": "",
