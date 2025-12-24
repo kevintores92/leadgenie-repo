@@ -9,6 +9,7 @@
 	"scripts": {
 		"postinstall": "prisma generate --schema=./prisma/schema.prisma",
 		"prisma:generate": "prisma generate --schema=./prisma/schema.prisma",
+		"migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
 		"seed": "node db/seed.js",
 		"start": "node src/campaignSender.js",
 		"start:inbound": "node src/inboundProcessor.js",

@@ -28,7 +28,7 @@ Required environment variables (set in Railway > Variables)
 Service configuration notes
 - `backend-api` (web):
   - Build: Dockerfile is provided at `apps/backend-api/Dockerfile`.
-  - The Dockerfile runs `npx prisma migrate deploy` on startup to apply migrations.
+  - The Dockerfile runs `prisma migrate deploy` on startup to apply migrations (uses the installed Prisma CLI).
   - Railway will expose the `PORT` via env — the app uses `process.env.PORT`.
 - `worker-services` (worker):
   - Build: Dockerfile is provided at `apps/worker-services/Dockerfile`.
@@ -36,8 +36,8 @@ Service configuration notes
 
 Running migrations
 - Migrations are executed by the backend Dockerfile at container start (`npx prisma migrate deploy`). Ensure `DATABASE_URL` is correctly set in Railway before starting the `backend-api` service.
-- If you prefer to run migrations manually from Railway Console:
-  - Open a one-off shell and run: `npx prisma migrate deploy`
+-- If you prefer to run migrations manually from Railway Console:
+  - Open a one-off shell and run: `prisma migrate deploy` or `npm run migrate:deploy` (in the app folder)
 
 Auto-number purchase & billing
 - Auto-buy of numbers is not enabled by default. If you implement auto-purchase, ensure strict org-level caps are enforced and record every purchase in `ComplianceAuditLog`.

@@ -15,17 +15,18 @@
 **Time Estimate: 5-10 minutes**
 
 ```bash
-# In /apps/frontend
+# In each app directory run the service-local migrate script (uses the installed Prisma CLI):
+# In frontend (if it has migrations)
 cd my-saas-platform/apps/frontend
-npx prisma migrate deploy
+npm run migrate:deploy || prisma migrate deploy --schema=./prisma/schema.prisma
 
-# In /apps/backend-api (if separate DB)
+# In backend-api
 cd ../backend-api
-npx prisma migrate deploy
+npm run migrate:deploy || prisma migrate deploy --schema=./prisma/schema.prisma
 
-# In /apps/worker-services (if separate DB)
+# In worker-services
 cd ../worker-services
-npx prisma migrate deploy
+npm run migrate:deploy || prisma migrate deploy --schema=./prisma/schema.prisma
 ```
 
 **Verification:**

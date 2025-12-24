@@ -7,6 +7,7 @@
     "postinstall": "prisma generate --schema=./prisma/schema.prisma && prisma migrate deploy --schema=./prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema=./prisma/schema.prisma",
     "migrate:dev": "prisma migrate dev --schema=./prisma/schema.prisma",
+    "migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
     "start": "node src/server.js",
     "worker:phone-scrub": "node src/workers/phone-scrub-worker.js"
   },

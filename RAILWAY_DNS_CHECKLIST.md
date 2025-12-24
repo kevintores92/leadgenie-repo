@@ -13,7 +13,7 @@ Overview
     - BEFORE you deploy, set the `VITE_API_URL` variable to the deployed backend API URL.
   - Service: `signup-service` (Node)
     - Root directory: `apps/signup-service`
-    - Build command: `npm install && npx prisma generate`
+    - Build command: `npm install --omit=dev && npm run prisma:generate` (uses service-local Prisma and `prisma/schema.signup.prisma`)
     - Start command: `npm start`
 
 2) Required environment variables
@@ -39,7 +39,8 @@ Overview
   - Add required secrets in Railway UI (Project → Settings → Variables).
   - Run DB migrations: either add a deploy step or run a one-off command:
 
-    railway run -- npx prisma migrate deploy --schema=./prisma/schema.prisma
+    # Use the service-specific schema for signup-service:
+    railway run -- prisma migrate deploy --schema=./prisma/schema.signup.prisma
 
 - Deploy `signup-standalone` AFTER `signup-service` is live.
   - In `signup-standalone` project settings set `VITE_API_URL` to the `signup-service` public URL.
@@ -79,7 +80,7 @@ Overview
 
 - Run migrations:
 
-  railway run -- npx prisma migrate deploy --schema=./prisma/schema.prisma
+  railway run -- prisma migrate deploy --schema=./prisma/schema.signup.prisma
 
 9) Notes & security
 - Do not commit secrets. Keep secrets only in Railway variables and local `.env` files that are gitignored.
