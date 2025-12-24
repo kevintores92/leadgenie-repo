@@ -37,15 +37,17 @@ export class LeadIngestionService {
         if (!row) continue;
 
         const columns = this.parseCsvRow(row);
-        const lead = this.mapLeadFromCsv(columns, headers, requiredMappings);
+          const lead = this.mapLeadFromCsv(columns, headers, requiredMappings);
 
-        if (lead.phone) {
-          phoneNumbers.push(lead.phone);
-          processedLeads.push({
-            ...lead,
-            rowIndex: i + 2, // 1-based row number including header
-          });
-        }
+          const primaryPhone = lead.phone1 || lead.phone || null;
+          if (primaryPhone) {
+            phoneNumbers.push(primaryPhone);
+            processedLeads.push({
+              ...lead,
+              primaryPhone,
+              rowIndex: i + 2, // 1-based row number including header
+            });
+          }
       }
 
       // Validate phone numbers in bulk
@@ -93,25 +95,33 @@ export class LeadIngestionService {
   ): Record<string, string> {
     const validMappings: Record<string, string> = {};
 
-    // Standard contact fields
-    const contactFields = ['name', 'email', 'phone', 'company', 'address', 'city', 'state', 'zip', 'notes'];
+    // Allowed contact fields (no mailing_* fields)
+    const contactFields = ['name', 'email', 'phone1', 'phone2', 'phone3', 'company', 'address', 'city', 'state', 'zip', 'notes'];
 
+    const usedFields: string[] = [];
     for (const [csvField, contactField] of Object.entries(mappings)) {
       if (!headers.includes(csvField)) {
         throw new Error(`Mapped CSV field '${csvField}' not found in file headers`);
       }
 
-      if (contactField !== '-- Don't Import --' && !contactFields.includes(contactField)) {
-        throw new Error(`Invalid contact field mapping: ${contactField}`);
+      if (contactField !== "-- Don't Import --") {
+        if (!contactFields.includes(contactField)) {
+          throw new Error(`Invalid contact field mapping: ${contactField}`);
+        }
+        // Enforce that a contact field is only used once
+        if (usedFields.includes(contactField)) {
+          throw new Error(`Contact field '${contactField}' is mapped more than once`);
+        }
+        usedFields.push(contactField);
       }
 
       validMappings[csvField] = contactField;
     }
 
-    // Ensure phone field is mapped
-    const hasPhoneMapping = Object.values(validMappings).includes('phone');
-    if (!hasPhoneMapping) {
-      throw new Error('Phone field must be mapped for lead ingestion');
+    // Ensure phone1 field is mapped (only phone1 is required)
+    const hasPhone1 = Object.values(validMappings).includes('phone1');
+    if (!hasPhone1) {
+      throw new Error('Phone 1 field must be mapped for lead ingestion');
     }
 
     return validMappings;

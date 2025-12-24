@@ -44,7 +44,9 @@ const contactFields = [
   "-- Don't Import --",
   "name",
   "email",
-  "phone",
+  "phone1",
+  "phone2",
+  "phone3",
   "company",
   "address",
   "city",
@@ -459,7 +461,7 @@ export default function CampaignNew() {
                     <div className="space-y-3">
                       <h4 className="font-medium">Map CSV Columns to Contact Fields</h4>
                       <p className="text-sm text-muted-foreground">
-                        Match your CSV columns to contact fields. Phone field is required.
+                        Match your CSV columns to contact fields. `Phone 1` field is required.
                       </p>
                       
                       {csvFields.map((csvField) => (
@@ -473,11 +475,17 @@ export default function CampaignNew() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {contactFields.map((field) => (
-                                <SelectItem key={field} value={field}>
-                                  {field}
-                                </SelectItem>
-                              ))}
+                              {(() => {
+                                const selected = Object.values(mappings || {}).filter(v => v && v !== "-- Don't Import --");
+                                return contactFields.map((field) => {
+                                  const isSelectedElsewhere = field !== mappings[csvField] && selected.includes(field);
+                                  return (
+                                    <SelectItem key={field} value={field} disabled={isSelectedElsewhere}>
+                                      {field}
+                                    </SelectItem>
+                                  );
+                                });
+                              })()}
                             </SelectContent>
                           </Select>
                         </div>
@@ -498,7 +506,7 @@ export default function CampaignNew() {
                         </Button>
                         <Button
                           onClick={handleContinue}
-                          disabled={uploading || !Object.values(mappings).includes('phone')}
+                          disabled={uploading || !Object.values(mappings).includes('phone1')}
                           className="flex-1"
                         >
                           {uploading ? (
