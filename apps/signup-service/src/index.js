@@ -4,7 +4,19 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('../../../my-saas-platform/apps/backend-api/node_modules/@prisma/client');
+// Prefer local installed @prisma/client; avoid hardcoded cross-package paths which break in containers
+let PrismaClient;
+try {
+  ({ PrismaClient } = require('@prisma/client'));
+} catch (e) {
+  // Fallback to workspace path if available (legacy), else rethrow
+  try {
+    ({ PrismaClient } = require('../../../my-saas-platform/apps/backend-api/node_modules/@prisma/client'));
+  } catch (err) {
+    console.error('Failed to load @prisma/client from both local node_modules and workspace path.');
+    throw err;
+  }
+}
 const Twilio = require('twilio');
 
 const app = express();
