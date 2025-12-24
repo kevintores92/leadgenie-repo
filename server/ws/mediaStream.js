@@ -31,10 +31,10 @@ class MediaStreamServer extends EventEmitter {
           // Notify partial then final
           const simulated = this._simulateSttFromPayload(obj.media.payload)
           if(simulated.partial){
-            this.emit('speech.partial', simulated.partial)
+            this.emit('speech', simulated.partial)
           }
           if(simulated.final){
-            this.emit('speech.final', simulated.final)
+            this.emit('final-speech', simulated.final)
           }
         }else if(obj.event === 'start'){
           logger.log('Twilio Media Stream started')

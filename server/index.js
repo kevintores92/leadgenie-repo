@@ -43,6 +43,33 @@ app.post('/startCall', async (req, res) => {
   res.json({ok:true, callId})
 })
 
+// Start campaign by reading attached_assets/leads.csv
+const fs = require('fs')
+const path = require('path')
+app.post('/campaign/start', async (req, res) => {
+  try{
+    const csvPath = path.join(__dirname, '..', 'attached_assets', 'leads.csv')
+    if(!fs.existsSync(csvPath)) return res.status(400).json({ok:false, error:'leads.csv not found in attached_assets'})
+    const txt = fs.readFileSync(csvPath, 'utf8')
+    const lines = txt.split(/\r?\n/).filter(l=>l.trim())
+    // assume header phone,equity,address
+    const rows = lines.slice(1).map(l=>{
+      const parts = l.split(',')
+      return { phone: parts[0]?.trim(), equity: Number(parts[1])||0, address: parts[2]?.trim() }
+    })
+    // sequentially start calls with small delay
+    (async ()=>{
+      for(const r of rows){
+        await fetch('http://localhost:' + (process.env.PORT||3000) + '/startCall', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(r)})
+        await new Promise(s=>setTimeout(s, 2000))
+      }
+    })()
+    res.json({ok:true, count: rows.length})
+  }catch(e){
+    res.status(500).json({ok:false, error:e.message})
+  }
+})
+
 // minimal health
 app.get('/health', (req, res) => res.json({ok:true}))
 
@@ -61,10 +88,10 @@ server.on('upgrade', function upgrade(request, socket, head) {
 
 // wire media events to the last active orchestrator for demo purposes
 let activeOrchestrator = null
-mediaServer.on('speech.partial', text => {
+mediaServer.on('speech', text => {
   if(activeOrchestrator) activeOrchestrator.onSpeechPartial(text)
 })
-mediaServer.on('speech.final', text => {
+mediaServer.on('final-speech', text => {
   if(activeOrchestrator) activeOrchestrator.onSpeechFinal(text)
 })
 
