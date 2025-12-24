@@ -40,8 +40,17 @@ export default function Dashboard() {
   const [callDuration, setCallDuration] = useState<number>(0);
   const [callTimer, setCallTimer] = useState<NodeJS.Timeout | null>(null);
   const [activeTab, setActiveTab] = useState<'sms' | 'cold-calling'>('sms');
+  const [show10DlcModal, setShow10DlcModal] = useState(false);
+  const [brandProfile, setBrandProfile] = useState<any>({ name: '', website: '', ein: '', contactName: '', contactEmail: '', phone: '' });
 
   useEffect(() => {
+    // Protect dashboard: redirect to landing if not authenticated
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      // Redirect to public landing site
+      window.location.href = 'https://leadgenie.online';
+      return;
+    }
     loadDashboardData();
   }, []);
 
@@ -139,6 +148,13 @@ export default function Dashboard() {
       }
       setContacts(contactsData.contacts || []);
       setOrganization(orgData);
+
+      // If organization appears to need 10DLC registration, show modal once
+      const alreadySeen = localStorage.getItem('tenDlcSeen');
+      const needsRegistration = !(orgData && (orgData.tenDlcRegistered || orgData.tenDlcRegistration));
+      if (needsRegistration && !alreadySeen) {
+        setShow10DlcModal(true);
+      }
 
       // Initialize selections
       if (orgData.marketplaces && orgData.marketplaces.length > 0) {
@@ -345,6 +361,76 @@ export default function Dashboard() {
             </div>
           </div>
         </header>
+
+        {/* 10DLC Modal */}
+        {show10DlcModal && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50">
+            <div className="bg-background p-6 rounded-lg w-full max-w-xl">
+              <h2 className="text-lg font-semibold mb-2">10DLC Business Info</h2>
+              <p className="text-sm text-muted-foreground mb-4">We need a few details to register your brand for A2P 10DLC. This is required for SMS delivery.</p>
+              <div className="grid gap-2">
+                <input className="p-2 border rounded" placeholder="Business / Brand Name *" value={brandProfile.name} onChange={(e) => setBrandProfile({ ...brandProfile, name: e.target.value })} />
+                <input className="p-2 border rounded" placeholder="Website *" value={brandProfile.website} onChange={(e) => setBrandProfile({ ...brandProfile, website: e.target.value })} />
+                <input className="p-2 border rounded" placeholder="EIN (optional)" value={brandProfile.ein} onChange={(e) => setBrandProfile({ ...brandProfile, ein: e.target.value })} />
+                <input className="p-2 border rounded" placeholder="Contact name *" value={brandProfile.contactName} onChange={(e) => setBrandProfile({ ...brandProfile, contactName: e.target.value })} />
+                <input className="p-2 border rounded" placeholder="Contact email *" value={brandProfile.contactEmail} onChange={(e) => setBrandProfile({ ...brandProfile, contactEmail: e.target.value })} />
+                <input className="p-2 border rounded" placeholder="Contact phone *" value={brandProfile.phone} onChange={(e) => setBrandProfile({ ...brandProfile, phone: e.target.value })} />
+              </div>
+              {/** validation and response */}
+              <div className="mt-3">
+                {error && <div className="text-sm text-red-400">{error}</div>}
+                {!error && loading && <div className="text-sm text-muted-foreground">Submitting...</div>}
+                {!error && !loading && (organization?.tenDlcRegistration || organization?.tenDlcRegistered) && (
+                  <div className="text-sm text-green-400">10DLC already submitted.</div>
+                )}
+                {/** show API response if present */}
+                {organization?.tenDlcRegistration && (
+                  <div className="mt-2 p-2 bg-gray-800/50 rounded text-sm">
+                    <div className="font-medium">Existing registration:</div>
+                    <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(organization.tenDlcRegistration, null, 2)}</pre>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => { setShow10DlcModal(false); localStorage.setItem('tenDlcSeen', 'true'); }}>Maybe later</Button>
+                <Button disabled={loading} onClick={async () => {
+                  // validation
+                  setError('');
+                  if (!brandProfile.name || !brandProfile.website || !brandProfile.contactName || !brandProfile.contactEmail || !brandProfile.phone) {
+                    setError('Please fill the required fields marked with *');
+                    return;
+                  }
+                  // basic email check
+                  const emailRe = /^\S+@\S+\.\S+$/;
+                  if (!emailRe.test(brandProfile.contactEmail)) {
+                    setError('Please enter a valid contact email');
+                    return;
+                  }
+                  try {
+                    setLoading(true);
+                    const payload = { organizationId: organization?.id, brandProfile, campaigns: [] };
+                    const res = await api.register10dlc(payload);
+                    // show success toast/inline message
+                    localStorage.setItem('tenDlcSeen', 'true');
+                    setShow10DlcModal(false);
+                    // show a transient success message on dashboard
+                    try { localStorage.setItem('tenDlcSuccess', JSON.stringify(res)); } catch (_) {}
+                    // reload organization state to reflect registration
+                    const orgData = await api.getOrganization();
+                    setOrganization(orgData);
+                  } catch (err: any) {
+                    console.error('10DLC register failed', err);
+                    setError(err.message || 'Failed to register 10DLC');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}>
+                  {loading ? 'Submitting...' : 'Submit'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Call Status */}
         {callStatus && (

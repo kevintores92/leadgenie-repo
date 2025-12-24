@@ -334,6 +334,14 @@ export async function getOrganization() {
   return apiRequest('/organization');
 }
 
+// 10DLC registration
+export async function register10dlc(payload: { organizationId: string; brandProfile: any; campaigns?: any[] }) {
+  return apiRequest('/10dlc/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function switchAreaCode(brandId: string, newAreaCode: string, confirmDataLoss: boolean = false) {
   return apiRequest('/organization/switch-area-code', {
     method: 'POST',

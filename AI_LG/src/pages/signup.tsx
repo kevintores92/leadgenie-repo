@@ -16,7 +16,7 @@ declare global {
 }
 
 export default function SignUp() {
-kevintores92@gmail.com  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
   const [step, setStep] = useState<"account" | "subscription">("account");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

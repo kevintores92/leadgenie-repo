@@ -57,6 +57,48 @@
         "VITE_API_URL": "https://api.leadgenie.online"
       }
     },
+    "signup-standalone": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": "apps/signup-standalone",
+      "builder": "STATIC",
+      "buildCommand": "npm install && npm run build",
+      "publishDirectory": "dist",
+      "variables": {
+        "VITE_API_URL": "https://api.leadgenie.online",
+        "VITE_PAYPAL_CLIENT_ID": "",
+        "VITE_PAYPAL_PLAN_ID": ""
+      }
+    },
+    "signup-service": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": "apps/signup-service",
+      "builder": "NODE",
+      "startCommand": "npm start",
+      "buildCommand": "npm install && npx prisma generate",
+      "variables": {
+        "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+        "JWT_SECRET": "",
+        "REDIS_URL": "${{ secrets.REDIS_URL }}",
+        "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
+        "TWILIO_AUTH_TOKEN": "${{ secrets.TWILIO_AUTH_TOKEN }}",
+        "TWILIO_MASTER_ACCOUNT_SID": "",
+        "TWILIO_MASTER_AUTH_TOKEN": "",
+        "PAYPAL_CLIENT_ID": "",
+        "PAYPAL_CLIENT_SECRET": "",
+        "PAYPAL_WEBHOOK_ID": "",
+        "APP_URL": "https://app.leadgenie.online",
+        "BASE_URL": "https://api.leadgenie.online",
+        "VAPI_API_KEY": "",
+        "RESEND_API_KEY": "",
+        "UPLOAD_STORAGE_PATH": "storage/uploads",
+        "EXPORT_STORAGE_PATH": "storage/exports",
+        "VERIFICATION_FROM_EMAIL": "contact@leadgenie.online"
+      }
+    },
     "postgres": {
       "image": "postgres:16",
       "variables": {

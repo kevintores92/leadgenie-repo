@@ -22,7 +22,22 @@ app.use((req, res, next) => {
       next();
     });
   } else {
-    cors()(req, res, () => {
+    // Enforce configurable allowed origins for CORS
+    const allowed = (process.env.ALLOWED_ORIGINS || 'https://leadgenie.online,https://app.leadgenie.online').split(',').map(s => s.trim()).filter(Boolean);
+    const corsOptions = {
+      origin: function (origin, callback) {
+        // allow requests with no origin (e.g., server-to-server or native clients)
+        if (!origin) return callback(null, true);
+        if (allowed.indexOf(origin) !== -1) {
+          return callback(null, true);
+        } else {
+          return callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true,
+    };
+
+    cors(corsOptions)(req, res, () => {
       bodyParser.json()(req, res, next);
     });
   }
