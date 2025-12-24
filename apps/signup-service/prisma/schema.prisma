@@ -1,3 +1,8 @@
+// NOTE: This file is intentionally minimal. Use `schema.signup.prisma` for the
+// signup-service models and migrations. Keeping a small single-datasource
+// schema here prevents accidental `prisma generate --schema=./prisma/schema.prisma`
+// from failing due to multiple concatenated schema blocks.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,152 +12,164 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model _Dummy {
+  id String @id @default(cuid())
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  STARTER
+  PRO
+}
+
+enum BillingProvider {
+  PAYPAL
+  STRIPE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
 
-  // Wallet and AI feature flags
-  walletBalance        Float                     @default(0.0)
-  aiRepliesEnabled     Boolean                   @default(false)
-  aiCallsEnabled       Boolean                   @default(false)
-  aiWarmQualificationDepth AiQualificationDepth   @default(FULL)
-  aiColdQualificationDepth AiQualificationDepth   @default(FULL)
-  aiCallRecordingEnabled   Boolean                @default(false)
-  aiRecordingConsentLine   String?
-  aiMinMotivationIndicatorsForHot Int            @default(2)
-  plan                 Plan                      @default(STARTER)
-  marketplaces         String[]                  @default([])
-  areaCode             String?
-  timeZone             String?
-  pricingMarkupPercent Int                       @default(30)
-
-  // 10DLC Business Information
-  legalName            String?
-  dbaName              String?
-  businessType         String?
-  ein                  String?
-  address              String?
-  city                 String?
-  state                String?
-  zip                  String?
-  country              String?                   @default("United States")
-  website              String?
-  contactName          String?
-  contactEmail         String?
-  contactPhone         String?
-  businessDescription  String?
-  dlcBrandRegistered   Boolean                   @default(false)
-  dlcCampaignRegistered Boolean                  @default(false)
-
-  brands               Brand[]
-  users                User[]
-  usages               Usage[]
-  sendingNumbers       SendingNumber[]
-  activities           Activity[]
-  contacts             Contact[]
-  wallet               OrganizationWallet?
-  subscription         OrganizationSubscription?
-  uploadJobs           UploadJob[]
-}
-
-model Usage {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  type           String
-  cost           Float
-  createdAt      DateTime @default(now())
+  brands    Brand[]
+  users     User[]
+  wallet    OrganizationWallet?
+  subscription OrganizationSubscription?
 }
 
 model Brand {
-  id                   String   @id @default(cuid())
-  orgId                String
-  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  name                 String
-  twilioSubaccountSid  String?
-  subaccountAuthToken  String?
-  twilioTwiMLAppSid    String?
-  areaCode             String?
-  callingMode          String
-  aiVoicePlatformUrl   String?
-  createdAt            DateTime @default(now())
-
-  users                User[]
-  phoneNumbers         PhoneNumber[]
-  campaigns            Campaign[]
-  contacts             Contact[]
-  messages             Message[]
-  calls                CallLog[]
-  customFieldDefs      CustomFieldDefinition[]
+  id        String   @id @default(cuid())
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  twilioSubaccountSid String?
+  subaccountAuthToken String?
+  createdAt DateTime @default(now())
 }
 
 model User {
-  id            String   @id @default(cuid())
-  orgId         String
-  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  activeBrandId String?
-  activeBrand   Brand?   @relation(fields: [activeBrandId], references: [id])
-  username      String   @unique
-  email         String?
-  passwordHash  String?
-  createdAt     DateTime @default(now())
-
-  campaigns     Campaign[]
+  id           String   @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  username     String   @unique
+  email        String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
 }
 
-model PhoneNumber {
-  id              String   @id @default(cuid())
-  organizationId  String
-  brandId         String?
-  brand           Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  twilioSid       String   @unique
-  phoneNumber     String   @unique
-  status          PhoneNumberStatus @default(ACTIVE)
-  warmupLevel     Int      @default(1)
-  lastUsedAt      DateTime?
-  createdAt       DateTime @default(now())
-
-  campaigns       CampaignPhoneNumber[]
-  contactsAssigned Contact[] @relation("AssignedNumber")
+model OrganizationWallet {
+  id             String @id @default(uuid())
+  organizationId String @unique
+  balanceCents   Int    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
-model CampaignPhoneNumber {
-  id            String   @id @default(cuid())
-  campaignId    String
-  phoneNumberId String
-
-  campaign      Campaign  @relation(fields: [campaignId], references: [id])
-  phoneNumber   PhoneNumber @relation(fields: [phoneNumberId], references: [id])
-
-  @@unique([campaignId, phoneNumberId])
+model OrganizationSubscription {
+  id               String @id @default(uuid())
+  organizationId   String @unique
+  provider         BillingProvider
+  providerSubId    String
+  planId           String
+  status           SubscriptionStatus
+  currentPeriodEnd DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+generator client {
+  provider = "prisma-client-js"
 }
 
-enum PhoneNumberStatus {
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  STARTER
+  PRO
+}
+
+enum BillingProvider {
+  PAYPAL
+  STRIPE
+}
+
+enum SubscriptionStatus {
   ACTIVE
-  WARMING
-  PAUSED
-  BLOCKED
+  PAST_DUE
+  CANCELED
+  SUSPENDED
 }
 
-model Campaign {
-  id         String   @id @default(cuid())
-  brandId    String
-  brand      Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  name       String
-  callingMode String
-  status     CampaignStatus @default(DRAFT)
-  pausedReason String?
-  templatePrimary    String?
-  templateAlternate  String?
-  batchSize          Int?
-  intervalMinutes    Int?
-  quietHoursStart    Int?    // hour 0-23
-  quietHoursEnd      Int?
-  createdAt  DateTime @default(now())
-  campaignPhoneNumbers CampaignPhoneNumber[]
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  brands    Brand[]
+  users     User[]
+  wallet    OrganizationWallet?
+  subscription OrganizationSubscription?
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  twilioSubaccountSid String?
+  subaccountAuthToken String?
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id           String   @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  username     String   @unique
+  email        String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
+}
+
+model OrganizationWallet {
+  id             String @id @default(uuid())
+  organizationId String @unique
+  balanceCents   Int    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model OrganizationSubscription {
+  id               String @id @default(uuid())
+  organizationId   String @unique
+  provider         BillingProvider
+  providerSubId    String
+  planId           String
+  status           SubscriptionStatus
+  currentPeriodEnd DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model Message {
