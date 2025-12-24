@@ -1,8 +1,3 @@
-// NOTE: This file is intentionally minimal. Use `schema.signup.prisma` for the
-// signup-service models and migrations. Keeping a small single-datasource
-// schema here prevents accidental `prisma generate --schema=./prisma/schema.prisma`
-// from failing due to multiple concatenated schema blocks.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,87 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model _Dummy {
+// Clean minimal schema to prevent accidental multiple-datasource validation.
+// Use `schema.signup.prisma` for actual models and migrations.
+
+model DummyModel {
   id String @id @default(cuid())
 }
-generator client {
-  provider = "prisma-client-js"
-}
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-enum Plan {
-  STARTER
-  PRO
-}
-
-enum BillingProvider {
-  PAYPAL
-  STRIPE
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  PAST_DUE
-  CANCELED
-  SUSPENDED
-}
-
-model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-
-  brands    Brand[]
-  users     User[]
-  wallet    OrganizationWallet?
-  subscription OrganizationSubscription?
-}
-
-model Brand {
-  id        String   @id @default(cuid())
-  orgId     String
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  name      String
-  twilioSubaccountSid String?
-  subaccountAuthToken String?
-  createdAt DateTime @default(now())
-}
-
-model User {
-  id           String   @id @default(cuid())
-  orgId        String
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  username     String   @unique
-  email        String?
-  passwordHash String?
-  createdAt    DateTime @default(now())
-}
-
-model OrganizationWallet {
-  id             String @id @default(uuid())
-  organizationId String @unique
-  balanceCents   Int    @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-}
-
-model OrganizationSubscription {
-  id               String @id @default(uuid())
-  organizationId   String @unique
-  provider         BillingProvider
-  providerSubId    String
-  planId           String
-  status           SubscriptionStatus
-  currentPeriodEnd DateTime
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-}
 generator client {
   provider = "prisma-client-js"
 }
