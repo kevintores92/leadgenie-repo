@@ -19,9 +19,13 @@ export class CampaignManager {
 
   async uploadList(campaignId: string, rows: Contact[]) {
     this.lists.set(campaignId, rows.slice());
-    this.queues.set(campaignId, rows.slice());
+    // persist into redis queue
+    const key = `campaign:${campaignId}:queue`;
+    for (const r of rows) {
+      await this.redis.rpush(key, JSON.stringify(r));
+    }
     this.status.set(campaignId, { queued: rows.length, inProgress: 0, completed: 0, failed: 0 });
-    await this.redis.set(`campaign:${campaignId}:count`, String(rows.length));
+    await this.redis.hset(`campaign:${campaignId}:meta`, "count", String(rows.length));
     return { ok: true, count: rows.length };
   }
 
@@ -34,23 +38,30 @@ export class CampaignManager {
   }
 
   async runWorker(campaignId: string) {
-    const queue = this.queues.get(campaignId) || [];
-    while ((this.queues.get(campaignId) || []).length > 0) {
-      const q = this.queues.get(campaignId)!;
-      const contact = q.shift()!;
+    const key = `campaign:${campaignId}:queue`;
+    while (true) {
+      const raw = await this.redis.lpop(key);
+      if (!raw) break;
+      let contact: Contact;
+      try {
+        contact = JSON.parse(raw);
+      } catch (_e) {
+        contact = { phone: String(raw) } as Contact;
+      }
       const stat = this.status.get(campaignId)!;
-      stat.queued = q.length;
+      stat.queued = await this.redis.llen(key) as number;
       stat.inProgress += 1;
       try {
         await this.dialContact(contact, campaignId);
         stat.completed += 1;
       } catch (err) {
         stat.failed += 1;
+        // push back to queue for retry
+        await this.redis.rpush(key, JSON.stringify(contact));
         console.error("dial error", err);
       } finally {
         stat.inProgress -= 1;
       }
-      // rate limiting pause
       await new Promise((r) => setTimeout(r, this.rateMs));
     }
     this.workers.set(campaignId, false);
@@ -70,7 +81,15 @@ export class CampaignManager {
 
   async getStatus(campaignId: string) {
     const s = this.status.get(campaignId);
-    if (!s) return { ok: false, error: "not found" };
+    if (!s) {
+      // try to read meta from redis
+      const meta = await this.redis.hgetall(`campaign:${campaignId}:meta`);
+      const queued = (await this.redis.llen(`campaign:${campaignId}:queue`)) || 0;
+      const status = { queued: Number(queued), inProgress: 0, completed: Number(meta.completed || 0), failed: Number(meta.failed || 0) };
+      return { ok: true, status };
+    }
+    // refresh queued from redis
+    s.queued = (await this.redis.llen(`campaign:${campaignId}:queue`)) as number;
     return { ok: true, status: s };
   }
 }

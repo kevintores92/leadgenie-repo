@@ -111,6 +111,23 @@
       "image": "redis:7-alpine",
       "variables": {}
     }
+  ,
+    "orchestrator": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": ".",
+      "builder": "NODE",
+      "startCommand": "npm start",
+      "buildCommand": "npm ci --no-audit --no-fund && npm run build",
+      "variables": {
+        "PORT": "3000",
+        "NODE_ENV": "production",
+        "REDIS_URL": "${{ secrets.REDIS_URL }}",
+        "VAPI_API_KEY": "${{ secrets.VAPI_API_KEY }}",
+        "UPLOAD_TOKEN": "${{ secrets.UPLOAD_TOKEN }}"
+      }
+    }
   },
   "variables": {
     "shared": {

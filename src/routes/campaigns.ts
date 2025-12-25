@@ -2,6 +2,7 @@ import express from "express";
 import { Orchestrator } from "../orchestrator/Orchestrator";
 import bodyParser from "body-parser";
 import multer from "multer";
+import { requireUploadToken } from "../middleware/auth";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -11,6 +12,7 @@ export default function (orchestrator: Orchestrator) {
   // JSON or text/csv direct upload
   router.post(
     "/:campaignId/upload",
+    requireUploadToken,
     bodyParser.text({ type: ["text/*", "application/csv"], limit: "5mb" }),
     async (req, res) => {
       try {
@@ -44,7 +46,7 @@ export default function (orchestrator: Orchestrator) {
   );
 
   // multipart file upload (field name: file)
-  router.post("/:campaignId/upload-file", upload.single("file"), async (req, res) => {
+  router.post("/:campaignId/upload-file", requireUploadToken, upload.single("file"), async (req, res) => {
     try {
       const { campaignId } = req.params;
       const file = req.file;
