@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Upload Contacts</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      .box { max-width: 720px; margin: auto; }
+      input, button, textarea { width: 100%; padding: 8px; margin: 8px 0; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>Upload Contacts (CSV or newline list)</h1>
+      <label>Campaign ID</label>
+      <input id="campaignId" placeholder="campaign-1" value="campaign-1" />
+
+      <label>Upload Token</label>
+      <input id="token" placeholder="Enter upload token" />
+
+      <label>Paste CSV / newline list</label>
+      <textarea id="text" rows="8" placeholder="+15551234567,Name,...\n+15557654321,Name..."></textarea>
+
+      <div>
+        <button id="uploadText">Upload Text</button>
+      </div>
+
+      <hr />
+
+      <label>Or choose file (CSV / txt)</label>
+      <input type="file" id="file" />
+      <div>
+        <button id="uploadFile">Upload File</button>
+      </div>
+
+      <pre id="result"></pre>
+    </div>
+
+    <script>
+      async function postJSON(url, token, data) {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(data) });
+        return res.json();
+      }
+
+      document.getElementById('uploadText').addEventListener('click', async () => {
+        const campaignId = document.getElementById('campaignId').value;
+        const token = document.getElementById('token').value;
+        const text = document.getElementById('text').value;
+        const url = `/campaigns/${campaignId}/upload`;
+        const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>{ if(l.includes(',')){ const cols=l.split(',').map(c=>c.trim()); return { phone: cols[0], raw: cols }; } return { phone: l }; });
+        const out = await postJSON(url, token, lines);
+        document.getElementById('result').textContent = JSON.stringify(out, null, 2);
+      });
+
+      document.getElementById('uploadFile').addEventListener('click', async () => {
+        const campaignId = document.getElementById('campaignId').value;
+        const token = document.getElementById('token').value;
+        const fileInput = document.getElementById('file');
+        if (!fileInput.files.length) return alert('Select a file');
+        const fd = new FormData();
+        fd.append('file', fileInput.files[0]);
+        const url = `/campaigns/${campaignId}/upload-file`;
+        const res = await fetch(url, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
+        const body = await res.json();
+        document.getElementById('result').textContent = JSON.stringify(body, null, 2);
+      });
+    </script>
+  </body>
+</html>

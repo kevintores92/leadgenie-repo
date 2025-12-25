@@ -68,10 +68,14 @@ export class CampaignManager {
   }
 
   async dialContact(contact: Contact, campaignId?: string) {
-    const callKey = `call:${Date.now()}:${Math.floor(Math.random() * 10000)}`;
+    const callId = `${Date.now()}:${Math.floor(Math.random() * 10000)}`;
+    const callKey = `call:${callId}`;
     const res = await this.vapi.createCall(contact.phone, { meta: contact, campaignId });
-    await this.redis.set(callKey, JSON.stringify({ phone: contact.phone, res }), 60 * 60 * 24);
-    return res;
+    await this.redis.set(callKey, JSON.stringify({ phone: contact.phone, res, campaignId, ts: Date.now() }), 60 * 60 * 24);
+    if (campaignId) {
+      await this.redis.rpush(`campaign:${campaignId}:calls`, callKey);
+    }
+    return { callId, res };
   }
 
   async handleVapiEvent(event: any) {

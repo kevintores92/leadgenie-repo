@@ -74,6 +74,17 @@ export default class RedisClient {
     return count;
   }
 
+  async lrange(key: string, start = 0, stop = -1) {
+    if (this.client) return this.client.lrange(key, start, stop);
+    const items: string[] = [];
+    // naive memory implementation: collect keys matching prefix in insertion order
+    for (const k of Array.from(this.memory!.keys())) {
+      if (k.startsWith(`${key}:`)) items.push(this.memory!.get(k)!.value);
+    }
+    if (stop === -1) stop = items.length - 1;
+    return items.slice(start, stop + 1);
+  }
+
   // hash helpers
   async hset(key: string, field: string, value: string) {
     if (this.client) return this.client.hset(key, field, value);

@@ -2,6 +2,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import WebhookRouter from "./routes/webhook";
 import CampaignsRouter from "./routes/campaigns";
+import VisibilityRouter from "./routes/visibility";
 import { Orchestrator } from "./orchestrator/Orchestrator";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -15,9 +16,12 @@ async function main() {
     vapiApiKey: process.env.VAPI_API_KEY,
     vapiBaseUrl: process.env.VAPI_BASE_URL || "https://api.vapi.ai"
   });
-
   app.use("/vapi/webhooks", WebhookRouter(orchestrator));
   app.use("/campaigns", CampaignsRouter(orchestrator));
+  app.use("/visibility", VisibilityRouter(orchestrator.redis));
+
+  // serve simple static upload page
+  app.use(express.static("public"));
 
   app.get("/health", (_req, res) => res.status(200).send({ ok: true }));
 
