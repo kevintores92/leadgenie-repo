@@ -23,15 +23,15 @@ export default function (orchestrator: Orchestrator) {
           rows = req.body as any;
         } else if (typeof req.body === "string" && req.body.trim().length > 0) {
           const text = req.body.trim();
-          const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+          const lines = text.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
           if (lines.length > 0 && lines[0].includes(",")) {
-            rows = lines.map((ln) => {
-              const cols = ln.split(",").map((c) => c.trim());
-              return { phone: cols[0], raw: cols };
-            });
-          } else {
-            rows = lines.map((ln) => ({ phone: ln }));
-          }
+              rows = lines.map((ln: string) => {
+                const cols = ln.split(",").map((c: string) => c.trim());
+                return { phone: cols[0], raw: cols };
+              });
+            } else {
+              rows = lines.map((ln: string) => ({ phone: ln }));
+            }
         } else if (req.body && typeof req.body === "object") {
           rows = Array.isArray(req.body) ? req.body : [req.body];
         }
@@ -52,15 +52,15 @@ export default function (orchestrator: Orchestrator) {
       const file = req.file;
       if (!file) return res.status(400).send({ ok: false, error: "no file" });
       const text = file.buffer.toString("utf8").trim();
-      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const lines = text.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
       let rows: Array<{ phone: string; [k: string]: any }> = [];
       if (lines.length > 0 && lines[0].includes(",")) {
-        rows = lines.map((ln) => {
-          const cols = ln.split(",").map((c) => c.trim());
+        rows = lines.map((ln: string) => {
+          const cols = ln.split(",").map((c: string) => c.trim());
           return { phone: cols[0], raw: cols };
         });
       } else {
-        rows = lines.map((ln) => ({ phone: ln }));
+        rows = lines.map((ln: string) => ({ phone: ln }));
       }
       const result = await orchestrator.uploadList(campaignId, rows);
       res.status(200).send(result);
