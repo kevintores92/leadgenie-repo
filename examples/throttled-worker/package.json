@@ -1,0 +1,12 @@
+{
+  "name": "throttled-worker-example",
+  "version": "1.0.0",
+  "description": "Simple token-bucket throttled queue consumer demo",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

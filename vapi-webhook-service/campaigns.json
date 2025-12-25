@@ -1,0 +1,7 @@
+{
+  "default": {
+    "id": "default",
+    "name": "Default Campaign",
+    "maxPerHour": 200
+  }
+}

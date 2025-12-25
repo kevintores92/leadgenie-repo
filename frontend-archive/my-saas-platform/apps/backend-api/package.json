@@ -1,0 +1,39 @@
+{
+  "name": "backend-api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "postinstall": "prisma generate --schema=./prisma/schema.prisma && prisma migrate deploy --schema=./prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema=./prisma/schema.prisma",
+    "migrate:dev": "prisma migrate dev --schema=./prisma/schema.prisma",
+    "migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
+    "start": "node src/server.js",
+    "worker:phone-scrub": "node src/workers/phone-scrub-worker.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0",
+    "archiver": "^6.0.0",
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^1.82.0",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.4.0",
+    "express": "^4.18.2",
+    "express-fileupload": "^1.5.0",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.3",
+    "libphonenumber-js": "^1.10.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.2",
+    "twilio": "^4.23.0",
+    "uuid": "^9.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "prisma": {}
+}

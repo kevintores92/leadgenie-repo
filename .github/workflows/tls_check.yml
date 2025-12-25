@@ -1,0 +1,59 @@
+name: TLS and HTTP check
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Host to check (with www)'
+        required: true
+        default: 'www.leadgenie.online'
+
+jobs:
+  tls-check:
+    name: Run TLS + HTTP checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run curl HTTPS check
+        run: |
+          HOST="${{ github.event.inputs.host }}"
+          echo "Running curl -Iv https://$HOST"
+          curl -Iv https://$HOST 2>&1 | tee curl_https.txt || true
+
+      - name: Run curl HTTP check
+        run: |
+          HOST="${{ github.event.inputs.host }}"
+          echo "Running curl -I http://$HOST"
+          curl -I http://$HOST 2>&1 | tee curl_http.txt || true
+
+      - name: Run openssl s_client (full)
+        run: |
+          HOST="${{ github.event.inputs.host }}"
+          echo "Running openssl s_client -connect $HOST:443 -servername $HOST -showcerts"
+          openssl s_client -connect $HOST:443 -servername $HOST -showcerts 2>&1 | tee openssl_full.txt || true
+
+      - name: Print leaf cert details
+        run: |
+          HOST="${{ github.event.inputs.host }}"
+          echo | openssl s_client -connect $HOST:443 -servername $HOST 2>/dev/null | openssl x509 -noout -text 2>&1 | tee openssl_cert.txt || true
+
+      - name: Show short summaries
+        run: |
+          echo '----- curl HTTPS (first 200 lines) -----'
+          head -n 200 curl_https.txt || true
+          echo '----- curl HTTP -----'
+          cat curl_http.txt || true
+          echo '----- openssl cert Subject/Issuer/SAN/Not After -----'
+          grep -E "Subject:|Issuer:|X509v3 Subject Alternative Name:|DNS:|Not After" -n openssl_cert.txt || true
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tls-check-logs
+          path: |
+            curl_https.txt
+            curl_http.txt
+            openssl_full.txt
+            openssl_cert.txt
