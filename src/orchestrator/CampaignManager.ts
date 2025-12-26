@@ -89,12 +89,39 @@ export class CampaignManager {
   async dialContact(contact: Contact, campaignId?: string) {
     const callId = `${Date.now()}:${Math.floor(Math.random() * 10000)}`;
     const callKey = `call:${callId}`;
+    // Gate real outbound calls behind LIVE_CALLS flag to avoid accidental billing.
+    if (process.env.LIVE_CALLS !== "1") {
+      const res = { simulated: true, note: "LIVE_CALLS not set" };
+      await this.redis.set(callKey, JSON.stringify({ phone: contact.phone, res, campaignId, ts: Date.now() }), 60 * 60 * 24);
+      if (campaignId) {
+        await this.redis.rpush(`campaign:${campaignId}:calls`, callKey);
+      }
+      return { callId, res };
+    }
+
     const res = await this.vapi.createCall(contact.phone, { meta: contact, campaignId });
     await this.redis.set(callKey, JSON.stringify({ phone: contact.phone, res, campaignId, ts: Date.now() }), 60 * 60 * 24);
     if (campaignId) {
       await this.redis.rpush(`campaign:${campaignId}:calls`, callKey);
     }
     return { callId, res };
+  }
+
+  async clearQueue(campaignId: string) {
+    const key = `campaign:${campaignId}:queue`;
+    try {
+      const len = (await this.redis.llen(key)) as number;
+      await this.redis.del(key);
+      await this.redis.hset(`campaign:${campaignId}:meta`, "count", "0");
+      // update in-memory status if present
+      if (this.status.has(campaignId)) {
+        this.status.set(campaignId, { queued: 0, inProgress: 0, completed: 0, failed: 0 });
+      }
+      return { ok: true, cleared: Number(len) };
+    } catch (err) {
+      console.error('clearQueue error', err);
+      return { ok: false, error: String(err) };
+    }
   }
 
   async handleVapiEvent(event: any) {

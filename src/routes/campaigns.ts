@@ -81,6 +81,18 @@ export default function (orchestrator: Orchestrator) {
     }
   });
 
+  // Admin: clear a campaign queue (requires upload token)
+  router.post("/:campaignId/clear", requireUploadToken, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const result = await orchestrator.campaignManager.clearQueue(campaignId);
+      res.status(200).send(result);
+    } catch (err) {
+      console.error("clear queue error", err);
+      res.status(500).send({ ok: false, error: String(err) });
+    }
+  });
+
   router.get("/:campaignId/status", async (req, res) => {
     try {
       const { campaignId } = req.params;
