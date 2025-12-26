@@ -11,6 +11,22 @@ export default class RedisClient {
       try {
         this.client = new IORedis(redisUrl);
         this.client.on("error", (e: any) => console.error("ioredis error", e));
+
+        // verify connection quickly; if unreachable, fall back to in-memory store
+        (async () => {
+          try {
+            // ping will reject if connection fails
+            await this.client.ping();
+            console.log("Connected to Redis at", redisUrl);
+          } catch (err) {
+            console.error("Failed to connect to Redis, falling back to memory", err);
+            try {
+              this.client.disconnect?.();
+            } catch (_e) {}
+            this.client = null;
+            this.memory = new Map();
+          }
+        })();
       } catch (err) {
         console.warn("Failed to init ioredis, falling back to memory", err);
         this.memory = new Map();

@@ -14,7 +14,9 @@ export class Orchestrator {
   vapi: VapiClient;
 
   constructor(opts: OrchestratorOpts) {
-    this.redis = new RedisClient(opts.redisUrl);
+    const envRedisUrl = process.env.REDIS_URL || process.env.REDIS_PUBLIC_URL ||
+      (process.env.REDIS_HOST ? `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT || 6379}` : undefined);
+    this.redis = new RedisClient(opts.redisUrl || envRedisUrl);
     this.vapi = new VapiClient(opts.vapiApiKey || "", opts.vapiBaseUrl);
     this.campaignManager = new CampaignManager(this.vapi, this.redis);
   }

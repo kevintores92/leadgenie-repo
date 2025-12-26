@@ -1,0 +1,138 @@
+﻿{
+  "$schema": "https://railway.app/railway.schema.json",
+  "services": {
+    "backend-api": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": "my-saas-platform/apps/backend-api",
+      "variables": {
+        "PORT": "5000",
+        "NODE_ENV": "production",
+        "DEV_AUTH_EMAIL": "admin@example.com",
+        "DEV_AUTH_PASSWORD": "supersecret",
+        "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
+        "TWILIO_AUTH_TOKEN": "${{ secrets.TWILIO_AUTH_TOKEN }}",
+        "TWILIO_TWIML_APP_SID": "${{ secrets.TWILIO_TWIML_APP_SID }}",
+        "TWILIO_FROM": "+16367472940",
+        "WEBHOOK_SUFFIX": "default",
+        "FAKE_TWILIO": "0",
+        "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+        "REDIS_URL": "${{ variables.shared.REDIS_URL }}"
+      }
+    },
+    "worker-services": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": "my-saas-platform/apps/worker-services",
+      "variables": {
+        "NODE_ENV": "production",
+        "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
+        "TWILIO_AUTH_TOKEN": "${{ secrets.TWILIO_AUTH_TOKEN }}",
+        "TWILIO_TWIML_APP_SID": "${{ secrets.TWILIO_TWIML_APP_SID }}",
+        "TWILIO_FROM": "+16367472940",
+        "FAKE_TWILIO": "0",
+        "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+        "REDIS_URL": "${{ variables.shared.REDIS_URL }}",
+        "TEMPLATES_CSV": "../../Temporary_Templates.csv",
+        "LLM_API_KEY": "${{ secrets.LLM_API_KEY }}",
+        "LLM_MODEL": "gpt-4o-mini",
+        "LLM_REPLY_MODEL": "gpt-4o-mini",
+        "VAPI_API_KEY": "${{ secrets.VAPI_API_KEY }}",
+        "VAPI_PHONE_NUMBER_ID": "${{ secrets.VAPI_PHONE_NUMBER_ID }}"
+      }
+    },
+    "frontend": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": "AI_LG",
+      "builder": "DOCKERFILE",
+      "dockerfilePath": "Dockerfile",
+      "variables": {
+        "NODE_ENV": "production",
+        "VITE_DEV_AUTH_EMAIL": "admin@example.com",
+        "VITE_DEV_AUTH_PASSWORD": "supersecret",
+        "VITE_API_URL": "https://api.leadgenie.online"
+      }
+    },
+    "signup-standalone": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": "apps/signup-standalone",
+      "builder": "STATIC",
+      "buildCommand": "npm install && npm run build",
+      "publishDirectory": "dist",
+      "variables": {
+        "VITE_API_URL": "https://api.leadgenie.online",
+        "VITE_PAYPAL_CLIENT_ID": "",
+        "VITE_PAYPAL_PLAN_ID": ""
+      }
+    },
+    "signup-service": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": "apps/signup-service",
+      "builder": "NODE",
+      "startCommand": "npm start",
+      "buildCommand": "npm install --omit=dev && npm run prisma:generate",
+      "variables": {
+        "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
+        "JWT_SECRET": "",
+        "REDIS_URL": "${{ variables.shared.REDIS_URL }}",
+        "TWILIO_ACCOUNT_SID": "${{ secrets.TWILIO_ACCOUNT_SID }}",
+        "TWILIO_AUTH_TOKEN": "${{ secrets.TWILIO_AUTH_TOKEN }}",
+        "TWILIO_MASTER_ACCOUNT_SID": "",
+        "TWILIO_MASTER_AUTH_TOKEN": "",
+        "PAYPAL_CLIENT_ID": "",
+        "PAYPAL_CLIENT_SECRET": "",
+        "PAYPAL_WEBHOOK_ID": "",
+        "APP_URL": "https://app.leadgenie.online",
+        "BASE_URL": "https://api.leadgenie.online",
+        "VAPI_API_KEY": "",
+        "RESEND_API_KEY": "",
+        "UPLOAD_STORAGE_PATH": "storage/uploads",
+        "EXPORT_STORAGE_PATH": "storage/exports",
+        "VERIFICATION_FROM_EMAIL": "contact@leadgenie.online"
+      }
+    },
+    "postgres": {
+      "image": "postgres:16",
+      "variables": {
+        "POSTGRES_DB": "leadgenie",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "${{ secrets.POSTGRES_PASSWORD }}"
+      }
+    },
+    "redis": {
+      "image": "redis:7-alpine",
+      "variables": {}
+    }
+  ,
+    "orchestrator": {
+      "source": {
+        "repo": "https://github.com/kevintores92/leadgenie-repo.git"
+      },
+      "rootDirectory": ".",
+      "builder": "NODE",
+      "startCommand": "npm --prefix cold-calling start",
+      "buildCommand": "npm --prefix cold-calling install --no-audit --no-fund && npm --prefix cold-calling run build",
+      "variables": {
+        "PORT": "3000",
+        "NODE_ENV": "production",
+        "REDIS_URL": "${{ variables.shared.REDIS_URL }}",
+        "VAPI_API_KEY": "${{ secrets.VAPI_API_KEY }}",
+        "UPLOAD_TOKEN": "${{ secrets.UPLOAD_TOKEN }}"
+      }
+    }
+  },
+  "variables": {
+    "shared": {
+      "DATABASE_URL": "postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@${{ services.postgres.host }}:5432/leadgenie",
+      "REDIS_URL": "redis://${{ services.redis.host }}:6379"
+    }
+  }
+}
