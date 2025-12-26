@@ -32,6 +32,22 @@ export class CampaignManager {
   }
 
   async startCampaign(campaignId: string) {
+    if (!this.queues.has(campaignId)) {
+      // Attempt to recover queue from redis if in-memory map wasn't initialized
+      const key = `campaign:${campaignId}:queue`;
+      try {
+        const len = (await this.redis.llen(key)) as number;
+        if (len && len > 0) {
+          const items = (await this.redis.lrange(key, 0, -1)) as string[];
+          const rows = items.map((it) => {
+            try { return JSON.parse(it); } catch { return { phone: String(it) }; }
+          });
+          this.queues.set(campaignId, rows.slice());
+        }
+      } catch (err) {
+        console.error('failed to recover queue from redis', err);
+      }
+    }
     if (!this.queues.has(campaignId)) return { ok: false, error: "no list uploaded" };
     if (this.workers.get(campaignId)) return { ok: false, error: "campaign already running" };
     this.workers.set(campaignId, true);
