@@ -34,8 +34,18 @@ export class CampaignManager {
   async startCampaign(campaignId: string) {
     const key = `campaign:${campaignId}:queue`;
     try {
-      const queued = (await this.redis.llen(key)) as number;
-      if (!queued || queued === 0) return { ok: false, error: "no list uploaded" };
+      let queued = Number((await this.redis.llen(key)) as number) || 0;
+      // fallback: if redis list length is 0, check persisted meta count (upload may have set meta)
+      if (queued === 0) {
+        try {
+          const meta = await this.redis.hgetall(`campaign:${campaignId}:meta`);
+          const metaCount = Number(meta.count || 0);
+          if (metaCount > 0) queued = metaCount;
+        } catch (e) {
+          // ignore meta read errors here; we'll treat queued as-is
+        }
+      }
+      if (queued === 0) return { ok: false, error: "no list uploaded" };
     } catch (err) {
       console.error('startCampaign failed to read queue length', err);
       return { ok: false, error: 'failed to read queue' };
