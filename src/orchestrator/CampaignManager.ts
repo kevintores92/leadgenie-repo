@@ -19,6 +19,8 @@ export class CampaignManager {
 
   async uploadList(campaignId: string, rows: Contact[]) {
     this.lists.set(campaignId, rows.slice());
+    // ensure in-memory queue reference exists so startCampaign can run
+    this.queues.set(campaignId, rows.slice());
     // persist into redis queue
     const key = `campaign:${campaignId}:queue`;
     for (const r of rows) {
